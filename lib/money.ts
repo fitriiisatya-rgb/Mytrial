@@ -39,7 +39,7 @@ export function toSen(value: RupiahInput): Sen {
   if (!match) {
     throw new Error(`toSen: cannot parse "${value}" as a Rupiah amount`);
   }
-  const [, sign, whole, frac = ""] = match;
+  const [, sign = "", whole = "0", frac = ""] = match;
   const fracPadded = (frac + "00").slice(0, 2);
   const sen = BigInt(whole) * SEN_PER_RUPIAH + BigInt(fracPadded || "0");
   return sign === "-" ? -sen : sen;
@@ -128,11 +128,11 @@ export function allocateProportionally<T>(total: Sen, items: Weighted<T>[]): All
 
   for (const { index } of remainders) {
     if (leftover === 0n) break;
-    floors[index] += 1n;
+    floors[index] = floors[index]! + 1n;
     leftover -= 1n;
   }
 
-  const result = items.map((item, i) => ({ key: item.key, amount: floors[i] }));
+  const result = items.map((item, i) => ({ key: item.key, amount: floors[i]! }));
 
   // Self-check — this must always hold; if it doesn't, fail loudly rather
   // than silently post an unbalanced allocation journal.
@@ -158,7 +158,7 @@ export function pctOf(amount: Sen, pct: RupiahInput): Sen {
   const pctStr = typeof pct === "number" ? pct.toString() : pct.trim();
   const match = /^(-?)(\d+)(?:\.(\d{1,6}))?$/.exec(pctStr);
   if (!match) throw new Error(`pctOf: cannot parse percentage "${pct}"`);
-  const [, sign, whole, frac = ""] = match;
+  const [, sign = "", whole = "0", frac = ""] = match;
   const fracPadded = (frac + "000000").slice(0, 6);
   const pctMicros = BigInt(whole) * 1_000_000n + BigInt(fracPadded || "0");
   const signedPctMicros = sign === "-" ? -pctMicros : pctMicros;

@@ -6,3 +6,4 @@ dist_check/
 .env.local
 .DS_Store
 next-env.d.ts
+*.tsbuildinfo

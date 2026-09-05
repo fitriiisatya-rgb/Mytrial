@@ -46,11 +46,13 @@ export interface Database {
         Row: { id: string; full_name: string; role: UserRole; active: boolean; created_at: string; updated_at: string };
         Insert: { id: string; full_name: string; role: UserRole; active?: boolean };
         Update: Partial<{ full_name: string; role: UserRole; active: boolean }>;
+        Relationships: [];
       };
       entities: {
         Row: { id: string; code: string; name: string; active: boolean; created_at: string };
         Insert: { id?: string; code: string; name: string; active?: boolean };
         Update: Partial<{ code: string; name: string; active: boolean }>;
+        Relationships: [];
       };
       coa: {
         Row: {
@@ -65,6 +67,7 @@ export interface Database {
           pnl_category?: string | null; reporting_order?: number; active?: boolean;
         };
         Update: Partial<Database["public"]["Tables"]["coa"]["Insert"]>;
+        Relationships: [];
       };
       outlets: {
         Row: {
@@ -80,6 +83,7 @@ export interface Database {
           active?: boolean;
         };
         Update: Partial<Database["public"]["Tables"]["outlets"]["Insert"]>;
+        Relationships: [];
       };
       banks: {
         Row: {
@@ -91,6 +95,7 @@ export interface Database {
           bank_name: string; coa_id: string; active?: boolean;
         };
         Update: Partial<Database["public"]["Tables"]["banks"]["Insert"]>;
+        Relationships: [];
       };
       investors: {
         Row: {
@@ -102,6 +107,7 @@ export interface Database {
           phone?: string | null; profile_id?: string | null; status?: string;
         };
         Update: Partial<Database["public"]["Tables"]["investors"]["Insert"]>;
+        Relationships: [];
       };
       partnership_contracts: {
         Row: {
@@ -115,6 +121,7 @@ export interface Database {
           profit_distribution_pct: Numeric; active?: boolean;
         };
         Update: Partial<Database["public"]["Tables"]["partnership_contracts"]["Insert"]>;
+        Relationships: [];
       };
       investor_ownerships: {
         Row: {
@@ -128,6 +135,29 @@ export interface Database {
           active?: boolean; created_by?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["investor_ownerships"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "investor_ownerships_outlet_id_fkey";
+            columns: ["outlet_id"];
+            isOneToOne: false;
+            referencedRelation: "outlets";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "investor_ownerships_investor_id_fkey";
+            columns: ["investor_id"];
+            isOneToOne: false;
+            referencedRelation: "investors";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "investor_ownerships_contract_id_fkey";
+            columns: ["contract_id"];
+            isOneToOne: false;
+            referencedRelation: "partnership_contracts";
+            referencedColumns: ["id"];
+          }
+        ];
       };
       accounting_periods: {
         Row: {
@@ -141,11 +171,13 @@ export interface Database {
           bank_import_complete?: boolean; revenue_import_complete?: boolean; allocation_complete?: boolean;
         };
         Update: Partial<Database["public"]["Tables"]["accounting_periods"]["Row"]>;
+        Relationships: [];
       };
       revenue_sources: {
         Row: { id: string; code: string; name: string; clearing_coa_id: string; active: boolean; created_at: string };
         Insert: { id?: string; code: string; name: string; clearing_coa_id: string; active?: boolean };
         Update: Partial<Database["public"]["Tables"]["revenue_sources"]["Insert"]>;
+        Relationships: [];
       };
       import_batches: {
         Row: {
@@ -157,6 +189,7 @@ export interface Database {
           row_count?: number; duplicate_count?: number; error_count?: number; status?: string;
         };
         Update: Partial<Database["public"]["Tables"]["import_batches"]["Insert"]>;
+        Relationships: [];
       };
       bank_transactions_raw: {
         Row: {
@@ -177,6 +210,7 @@ export interface Database {
           processed?: boolean;
         };
         Update: Partial<Database["public"]["Tables"]["bank_transactions_raw"]["Row"]>;
+        Relationships: [];
       };
       revenue_transactions_raw: {
         Row: {
@@ -192,6 +226,7 @@ export interface Database {
           fingerprint: string; processed?: boolean;
         };
         Update: Partial<Database["public"]["Tables"]["revenue_transactions_raw"]["Row"]>;
+        Relationships: [];
       };
       outlet_mapping_rules: {
         Row: {
@@ -201,6 +236,7 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["outlet_mapping_rules"]["Row"], "id" | "created_at"> & { id?: string };
         Update: Partial<Database["public"]["Tables"]["outlet_mapping_rules"]["Row"]>;
+        Relationships: [];
       };
       coa_mapping_rules: {
         Row: {
@@ -212,6 +248,7 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["coa_mapping_rules"]["Row"], "id" | "created_at"> & { id?: string };
         Update: Partial<Database["public"]["Tables"]["coa_mapping_rules"]["Row"]>;
+        Relationships: [];
       };
       exceptions: {
         Row: {
@@ -223,6 +260,7 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["exceptions"]["Row"], "id" | "created_at"> & { id?: string };
         Update: Partial<Database["public"]["Tables"]["exceptions"]["Row"]>;
+        Relationships: [];
       };
       journal_headers: {
         Row: {
@@ -234,6 +272,7 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["journal_headers"]["Row"], "id" | "created_at"> & { id?: string };
         Update: Partial<Database["public"]["Tables"]["journal_headers"]["Row"]>;
+        Relationships: [];
       };
       journal_lines: {
         Row: {
@@ -243,6 +282,7 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["journal_lines"]["Row"], "id" | "created_at"> & { id?: string };
         Update: Partial<Database["public"]["Tables"]["journal_lines"]["Row"]>;
+        Relationships: [];
       };
       allocation_rules: {
         Row: {
@@ -252,6 +292,7 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["allocation_rules"]["Row"], "id" | "created_at"> & { id?: string };
         Update: Partial<Database["public"]["Tables"]["allocation_rules"]["Row"]>;
+        Relationships: [];
       };
       allocation_rule_outlets: {
         Row: {
@@ -260,6 +301,7 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["allocation_rule_outlets"]["Row"], "id"> & { id?: string };
         Update: Partial<Database["public"]["Tables"]["allocation_rule_outlets"]["Row"]>;
+        Relationships: [];
       };
       pnl_reports: {
         Row: {
@@ -275,6 +317,7 @@ export interface Database {
           other_expense?: Numeric; status?: PnlStatus;
         };
         Update: Partial<Database["public"]["Tables"]["pnl_reports"]["Insert"]>;
+        Relationships: [];
       };
       profit_distributions: {
         Row: {
@@ -287,6 +330,7 @@ export interface Database {
           net_profit_snapshot: Numeric; distribution_pct_snapshot: Numeric; status?: DistributionStatus;
         };
         Update: Partial<Database["public"]["Tables"]["profit_distributions"]["Row"]>;
+        Relationships: [];
       };
       investor_profit_shares: {
         Row: {
@@ -299,6 +343,7 @@ export interface Database {
           share_amount: Numeric; status?: DistributionStatus;
         };
         Update: Partial<Database["public"]["Tables"]["investor_profit_shares"]["Row"]>;
+        Relationships: [];
       };
       audit_log: {
         Row: {
@@ -307,6 +352,7 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["audit_log"]["Row"], "id" | "created_at"> & { id?: string };
         Update: Partial<Database["public"]["Tables"]["audit_log"]["Row"]>;
+        Relationships: [];
       };
     };
     Views: {
@@ -314,6 +360,7 @@ export interface Database {
         Row: Database["public"]["Tables"]["journal_lines"]["Row"] & {
           journal_date: string; accounting_period_id: string; source_type: JournalSourceType; journal_status: JournalStatus;
         };
+        Relationships: [];
       };
     };
     Functions: {
@@ -343,5 +390,6 @@ export interface Database {
       match_type: MatchType;
       import_source_type: ImportSourceType;
     };
+    CompositeTypes: Record<string, never>;
   };
 }

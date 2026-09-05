@@ -94,3 +94,65 @@ test("pctOf then allocateProportionally reconciles end-to-end for a profit-share
   assert.equal(sum, distributable);
   assert.equal(fromSen(distributable), "23859500.00");
 });
+
+test("pctOf with zero profit distributes exactly zero to every investor", () => {
+  const netProfit = 0n;
+  const distributable = pctOf(netProfit, "70");
+  assert.equal(distributable, 0n);
+  const shares = allocateProportionally(distributable, [
+    { key: "Citra", weight: 20 },
+    { key: "Andi", weight: 30 },
+    { key: "Dedi", weight: 50 },
+  ]);
+  assert.deepEqual(
+    shares.map((s) => s.amount),
+    [0n, 0n, 0n]
+  );
+});
+
+test("pctOf on a negative profit (loss period) carries the sign through, never silently zeroed", () => {
+  const netLoss = toSen("-10000000");
+  const distributable = pctOf(netLoss, "70");
+  assert.equal(fromSen(distributable), "-7000000.00");
+});
+
+test("pctOf with ownership 100% returns the full amount unchanged", () => {
+  const netProfit = toSen("5000000");
+  const distributable = pctOf(netProfit, "100");
+  assert.equal(distributable, netProfit);
+});
+
+test("pctOf rejects an invalid (unparseable) percentage rather than silently defaulting", () => {
+  assert.throws(() => pctOf(toSen("1000000"), "abc"));
+  assert.throws(() => pctOf(toSen("1000000"), "70.5.5"));
+});
+
+test("allocateProportionally rejects a zero or negative total weight (e.g. all-zero ownership rows)", () => {
+  assert.throws(() =>
+    allocateProportionally(toSen("100"), [
+      { key: "A", weight: 0 },
+      { key: "B", weight: 0 },
+    ])
+  );
+});
+
+test("toSen/fromSen round-trip a very large Rupiah value without precision loss (beyond Number.MAX_SAFE_INTEGER in sen)", () => {
+  // Rp 999,999,999,999.99 -> 99,999,999,999,999 sen, which exceeds
+  // Number.MAX_SAFE_INTEGER (9,007,199,254,740,991 is close but this
+  // exercises BigInt correctness regardless) — must not lose a cent.
+  const huge = "999999999999.99";
+  const sen = toSen(huge);
+  assert.equal(sen, 99999999999999n);
+  assert.equal(fromSen(sen), huge);
+});
+
+test("allocateProportionally reconciles exactly even at very large Rupiah scale", () => {
+  const total = toSen("999999999999.99");
+  const result = allocateProportionally(total, [
+    { key: "A", weight: 1 },
+    { key: "B", weight: 1 },
+    { key: "C", weight: 1 },
+  ]);
+  const sum = result.reduce((s, r) => s + r.amount, 0n);
+  assert.equal(sum, total);
+});
