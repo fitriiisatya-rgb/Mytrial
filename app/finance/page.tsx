@@ -21,9 +21,14 @@ export default async function FinanceHome() {
       <p className="text-sm text-gray-500">
         Masuk sebagai <b>{profile?.full_name}</b> ({profile?.role}).
       </p>
-      <Link href="/master-data" className="inline-block mt-4 text-sm text-navy underline">
-        Master Data →
-      </Link>
+      <div className="flex gap-4 mt-4">
+        <Link href="/master-data" className="text-sm text-navy underline">
+          Master Data →
+        </Link>
+        <Link href="/import" className="text-sm text-navy underline">
+          Transaction Import →
+        </Link>
+      </div>
       <p className="text-sm text-gray-400 mt-4">
         Review &amp; approve journal, period reopen, dan approval bagi hasil dibangun di Phase 5 &amp; 8.
       </p>
