@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { SignOutButton } from "../sign-out-button";
 
@@ -20,6 +21,9 @@ export default async function AccountingHome() {
       <p className="text-sm text-gray-500">
         Masuk sebagai <b>{profile?.full_name}</b> ({profile?.role}). Auth + RLS Phase 1 terkonfirmasi jalan.
       </p>
+      <Link href="/master-data" className="inline-block mt-4 text-sm text-navy underline">
+        Master Data →
+      </Link>
       <p className="text-sm text-gray-400 mt-4">
         Exception Center, Auto Journal, dan halaman lain di sidebar prototype dibangun di Phase 4-5.
       </p>

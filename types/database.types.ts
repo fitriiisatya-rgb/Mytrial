@@ -83,7 +83,15 @@ export interface Database {
           active?: boolean;
         };
         Update: Partial<Database["public"]["Tables"]["outlets"]["Insert"]>;
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "outlets_entity_id_fkey";
+            columns: ["entity_id"];
+            isOneToOne: false;
+            referencedRelation: "entities";
+            referencedColumns: ["id"];
+          }
+        ];
       };
       banks: {
         Row: {
@@ -95,7 +103,22 @@ export interface Database {
           bank_name: string; coa_id: string; active?: boolean;
         };
         Update: Partial<Database["public"]["Tables"]["banks"]["Insert"]>;
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "banks_entity_id_fkey";
+            columns: ["entity_id"];
+            isOneToOne: false;
+            referencedRelation: "entities";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "banks_coa_id_fkey";
+            columns: ["coa_id"];
+            isOneToOne: false;
+            referencedRelation: "coa";
+            referencedColumns: ["id"];
+          }
+        ];
       };
       investors: {
         Row: {
@@ -121,7 +144,15 @@ export interface Database {
           profit_distribution_pct: Numeric; active?: boolean;
         };
         Update: Partial<Database["public"]["Tables"]["partnership_contracts"]["Insert"]>;
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "partnership_contracts_outlet_id_fkey";
+            columns: ["outlet_id"];
+            isOneToOne: false;
+            referencedRelation: "outlets";
+            referencedColumns: ["id"];
+          }
+        ];
       };
       investor_ownerships: {
         Row: {

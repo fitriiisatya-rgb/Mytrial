@@ -14,6 +14,10 @@ const ROUTE_ROLES: Record<string, Database["public"]["Enums"]["user_role"][]> = 
   "/finance": ["finance_manager", "super_admin"],
   "/management": ["management", "super_admin", "finance_manager"],
   "/admin": ["super_admin"],
+  // Broadest staff set that can reach any master-data section. Which
+  // specific tables a role may write is still enforced by RLS (0008) —
+  // this is only the route-level UX guard, not the security boundary.
+  "/master-data": ["super_admin", "accounting", "finance_manager", "management"],
 };
 
 export async function updateSession(request: NextRequest) {

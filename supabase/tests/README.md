@@ -32,7 +32,15 @@ psql -d partnership_finance_test -f supabase/seed.sql
 psql -d partnership_finance_test -f supabase/tests/010_rls_fixture.sql
 psql -d partnership_finance_test -f supabase/tests/test_integrity.sql
 psql -d partnership_finance_test -f supabase/tests/test_rls.sql
+psql -d partnership_finance_test -f supabase/tests/test_master_data.sql
 ```
+
+`test_master_data.sql` (Phase 2) exercises the exact query/mutation shapes
+used by `app/master-data/*/page.tsx` and `actions.ts` — the embedded-relation
+selects (`outlets(name)`, `banks(coa_id → coa)`, etc.), create flows under
+`accounting` and `management` roles, and the total-ownership guard firing
+through the real insert shape the ownerships form submits. Everything it
+inserts is rolled back at the end.
 
 Every assertion prints exactly one `NOTICE:  PASS: <name>` or
 `NOTICE:  FAIL: <name> - <reason>` line:
