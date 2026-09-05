@@ -7,11 +7,12 @@ import { KpiCard } from "@/components/cashflow/kpi-card";
 import { PageHeader } from "@/components/cashflow/page-header";
 import { Badge } from "@/components/cashflow/badge";
 import { CashPositionChart } from "@/components/cashflow/cash-position-chart";
+import { ALERT_TYPE_LABELS } from "@/lib/cashflow/labels";
 
 const RANGE_OPTIONS = [
-  { key: "today", label: "Today" },
-  { key: "week", label: "This Week" },
-  { key: "month", label: "This Month" },
+  { key: "today", label: "Hari Ini" },
+  { key: "week", label: "Minggu Ini" },
+  { key: "month", label: "Bulan Ini" },
 ] as const;
 
 function resolveRange(key: string | undefined, from?: string, to?: string) {
@@ -65,45 +66,45 @@ export default async function DashboardPage({
       />
 
       <div className="p-8 space-y-6">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <KpiCard label="Total Cash" value={formatRupiah(summary.totalCash)} sub="Seluruh rekening aktif" />
-          <KpiCard label="Cash In" value={formatRupiah(summary.cashIn)} tone="positive" sub="Periode terpilih, di luar transfer" />
-          <KpiCard label="Cash Out" value={formatRupiah(summary.cashOut)} tone="negative" sub="Periode terpilih, di luar transfer" />
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+          <KpiCard label="Total Saldo" value={formatRupiah(summary.totalCash)} sub="Seluruh rekening aktif" />
+          <KpiCard label="Penerimaan" value={formatRupiah(summary.cashIn)} tone="positive" sub="Periode terpilih, di luar transfer" />
+          <KpiCard label="Pengeluaran" value={formatRupiah(summary.cashOut)} tone="negative" sub="Periode terpilih, di luar transfer" />
           <KpiCard
-            label="Net Cashflow"
+            label="Arus Kas Bersih"
             value={formatRupiah(summary.netCashflow)}
             tone={summary.netCashflow >= 0 ? "positive" : "negative"}
           />
           <KpiCard
-            label="Projected Cash (30d)"
+            label="Proyeksi Saldo (30 hari)"
             value={formatRupiah(summary.projectedCash)}
             tone={summary.projectedCash >= 0 ? "default" : "negative"}
             sub="Saldo saat ini + rencana 30 hari"
           />
         </div>
 
-        <div className="grid grid-cols-4 gap-4 text-sm">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
           <div className="bg-white border border-border rounded-lg p-4">
-            <div className="text-xs text-gray-500 uppercase font-semibold">Opening Cash</div>
-            <div className="font-semibold text-navy mt-1">{formatRupiah(summary.openingCash)}</div>
+            <div className="text-xs text-gray-500 uppercase font-semibold">Saldo Awal</div>
+            <div className="font-semibold text-navy mt-1 break-words">{formatRupiah(summary.openingCash)}</div>
           </div>
           <div className="bg-white border border-border rounded-lg p-4">
-            <div className="text-xs text-gray-500 uppercase font-semibold">Closing Cash</div>
-            <div className="font-semibold text-navy mt-1">{formatRupiah(summary.closingCash)}</div>
+            <div className="text-xs text-gray-500 uppercase font-semibold">Saldo Akhir</div>
+            <div className="font-semibold text-navy mt-1 break-words">{formatRupiah(summary.closingCash)}</div>
           </div>
           <div className="bg-white border border-border rounded-lg p-4">
-            <div className="text-xs text-gray-500 uppercase font-semibold">Upcoming Cash In (30d)</div>
-            <div className="font-semibold text-emerald-600 mt-1">{formatRupiah(summary.upcomingCashIn)}</div>
+            <div className="text-xs text-gray-500 uppercase font-semibold">Penerimaan Mendatang (30 hari)</div>
+            <div className="font-semibold text-emerald-600 mt-1 break-words">{formatRupiah(summary.upcomingCashIn)}</div>
           </div>
           <div className="bg-white border border-border rounded-lg p-4">
-            <div className="text-xs text-gray-500 uppercase font-semibold">Upcoming Cash Out (30d)</div>
-            <div className="font-semibold text-red-600 mt-1">{formatRupiah(summary.upcomingCashOut)}</div>
+            <div className="text-xs text-gray-500 uppercase font-semibold">Pengeluaran Mendatang (30 hari)</div>
+            <div className="font-semibold text-red-600 mt-1 break-words">{formatRupiah(summary.upcomingCashOut)}</div>
           </div>
         </div>
 
         <div className="bg-white border border-border rounded-lg p-4">
           <div className="flex items-center justify-between mb-2">
-            <h2 className="text-sm font-semibold text-navy">Cash Position Over Time (30 hari terakhir)</h2>
+            <h2 className="text-sm font-semibold text-navy">Posisi Kas (30 hari terakhir)</h2>
           </div>
           <CashPositionChart data={series} />
         </div>
@@ -124,8 +125,8 @@ export default async function DashboardPage({
               >
                 <div className="text-sm font-semibold text-navy">{a.accountName}</div>
                 <div className="text-xs text-gray-400">{a.bankName}</div>
-                <div className="text-lg font-bold text-navy mt-2">{formatRupiah(a.currentBalance)}</div>
-                <div className="flex justify-between text-xs text-gray-500 mt-2">
+                <div className={`text-lg font-bold mt-2 whitespace-nowrap ${a.currentBalance < 0 ? "text-red-600" : "text-navy"}`}>{formatRupiah(a.currentBalance)}</div>
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-500 mt-2">
                   <span className="text-emerald-600">+{formatRupiah(a.cashInPeriod)}</span>
                   <span className="text-red-600">-{formatRupiah(a.cashOutPeriod)}</span>
                 </div>
@@ -141,16 +142,14 @@ export default async function DashboardPage({
         </div>
 
         <div>
-          <h2 className="text-sm font-semibold text-navy mb-3">Cashflow Alerts</h2>
+          <h2 className="text-sm font-semibold text-navy mb-3">Peringatan Cashflow</h2>
           <div className="bg-white border border-border rounded-lg divide-y divide-border">
             {(alertsRes.data ?? []).map((a) => (
-              <div key={a.id} className="px-4 py-3 flex items-center justify-between text-sm">
-                <div>
-                  <Badge tone={a.severity === "CRITICAL" ? "negative" : a.severity === "WARNING" ? "warning" : "info"}>
-                    {a.alert_type.replace(/_/g, " ")}
-                  </Badge>
-                  <span className="ml-2 text-gray-700">{a.message}</span>
-                </div>
+              <div key={a.id} className="px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-sm">
+                <Badge tone={a.severity === "CRITICAL" ? "negative" : a.severity === "WARNING" ? "warning" : "info"}>
+                  {ALERT_TYPE_LABELS[a.alert_type] ?? a.alert_type}
+                </Badge>
+                <span className="text-gray-700 break-words">{a.message}</span>
               </div>
             ))}
             {(alertsRes.data ?? []).length === 0 && (

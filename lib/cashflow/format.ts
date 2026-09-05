@@ -1,9 +1,9 @@
 import { toSen, formatIDR as formatIDRSen } from "@/lib/money";
 
-/** Format a Rupiah amount (number or NUMERIC string from Postgres) as "Rp 1.250.000.000". */
+/** Format a Rupiah amount (number or NUMERIC string from Postgres) as "Rp 1.250.000.000". A non-breaking space after "Rp" keeps the amount from wrapping onto its own line in a narrow card. */
 export function formatRupiah(amount: number | string | null | undefined): string {
-  if (amount === null || amount === undefined) return "Rp 0";
-  return formatIDRSen(toSen(amount));
+  if (amount === null || amount === undefined) return "Rp 0";
+  return formatIDRSen(toSen(amount)).replace(" ", " ");
 }
 
 const JAKARTA_TZ = "Asia/Jakarta";

@@ -55,8 +55,8 @@ export default async function CalendarPage({ searchParams }: { searchParams: { m
   return (
     <div>
       <PageHeader
-        title="Cashflow Calendar"
-        description="Rencana cash in/out dan jadwal pembayaran per tanggal."
+        title="Kalender Cashflow"
+        description="Rencana penerimaan/pengeluaran dan jadwal pembayaran per tanggal."
         actions={
           <div className="flex items-center gap-2 text-sm">
             <Link href={`/cashflow/calendar?month=${shiftMonth(monthKey, -1)}`} className="px-2 py-1 border border-border rounded-md">
@@ -72,33 +72,37 @@ export default async function CalendarPage({ searchParams }: { searchParams: { m
         }
       />
       <div className="p-8">
-        <div className="grid grid-cols-7 gap-2 text-xs text-gray-400 mb-1 px-1">
-          {["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"].map((d) => (
-            <div key={d}>{d}</div>
-          ))}
-        </div>
-        <div className="grid grid-cols-7 gap-2">
-          {cells.map((date, i) => {
-            if (!date) return <div key={i} />;
-            const entry = byDay.get(date);
-            const isToday = date === today;
-            return (
-              <Link
-                key={date}
-                href={`/cashflow/calendar?month=${monthKey}&date=${date}`}
-                className={`border rounded-lg p-2 h-24 flex flex-col justify-between text-xs hover:border-navy ${
-                  date === selectedDate ? "border-navy bg-navy/5" : "border-border bg-white"
-                } ${isToday ? "ring-1 ring-gold" : ""}`}
-              >
-                <div className="font-semibold text-gray-600">{Number(date.slice(-2))}</div>
-                <div className="space-y-0.5">
-                  {entry?.cashIn ? <div className="text-emerald-600">+{formatRupiah(entry.cashIn)}</div> : null}
-                  {entry?.cashOut ? <div className="text-red-600">-{formatRupiah(entry.cashOut)}</div> : null}
-                  {entry?.payments ? <div className="text-amber-600">Payment: {formatRupiah(entry.payments)}</div> : null}
-                </div>
-              </Link>
-            );
-          })}
+        <div className="overflow-x-auto">
+          <div className="min-w-[640px]">
+            <div className="grid grid-cols-7 gap-2 text-xs text-gray-400 mb-1 px-1">
+              {["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"].map((d) => (
+                <div key={d}>{d}</div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 gap-2">
+              {cells.map((date, i) => {
+                if (!date) return <div key={i} />;
+                const entry = byDay.get(date);
+                const isToday = date === today;
+                return (
+                  <Link
+                    key={date}
+                    href={`/cashflow/calendar?month=${monthKey}&date=${date}`}
+                    className={`border rounded-lg p-2 h-24 flex flex-col justify-between text-xs hover:border-navy ${
+                      date === selectedDate ? "border-navy bg-navy/5" : "border-border bg-white"
+                    } ${isToday ? "ring-1 ring-gold" : ""}`}
+                  >
+                    <div className="font-semibold text-gray-600">{Number(date.slice(-2))}</div>
+                    <div className="space-y-0.5 overflow-hidden">
+                      {entry?.cashIn ? <div className="text-emerald-600 truncate">+{formatRupiah(entry.cashIn)}</div> : null}
+                      {entry?.cashOut ? <div className="text-red-600 truncate">-{formatRupiah(entry.cashOut)}</div> : null}
+                      {entry?.payments ? <div className="text-amber-600 truncate">Bayar: {formatRupiah(entry.payments)}</div> : null}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         {selectedDate && (
@@ -110,13 +114,13 @@ export default async function CalendarPage({ searchParams }: { searchParams: { m
             <ul className="space-y-2 text-sm">
               {selectedPlans.map((p, i) => (
                 <li key={`plan-${i}`} className="flex justify-between">
-                  <span>{p.description || (p.type === "CASH_IN" ? "Rencana Cash In" : "Rencana Cash Out")}</span>
+                  <span>{p.description || (p.type === "CASH_IN" ? "Rencana Penerimaan" : "Rencana Pengeluaran")}</span>
                   <span className={p.type === "CASH_IN" ? "text-emerald-600" : "text-red-600"}>{formatRupiah(p.amount)}</span>
                 </li>
               ))}
               {selectedPayments.map((p, i) => (
                 <li key={`pay-${i}`} className="flex justify-between">
-                  <span>Payment: {p.payee}</span>
+                  <span>Pembayaran: {p.payee}</span>
                   <span className="text-amber-600">{formatRupiah(p.amount)}</span>
                 </li>
               ))}

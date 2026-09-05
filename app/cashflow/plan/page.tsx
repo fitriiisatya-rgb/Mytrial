@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/cashflow/page-header";
 import { Badge } from "@/components/cashflow/badge";
 import { formatRupiah, formatDateID } from "@/lib/cashflow/format";
 import { createPlan, updatePlanStatus, deletePlan } from "./actions";
+import { PLANNED_STATUS_LABELS } from "@/lib/cashflow/labels";
 
 const STATUS_TONE: Record<string, "neutral" | "positive" | "negative" | "warning" | "info"> = {
   PLANNED: "neutral",
@@ -15,7 +16,7 @@ const STATUS_TONE: Record<string, "neutral" | "positive" | "negative" | "warning
 };
 
 const NEXT_STATUS: Record<string, { label: string; status: string }[]> = {
-  PLANNED: [{ label: "Approve", status: "APPROVED" }, { label: "Batalkan", status: "CANCELLED" }],
+  PLANNED: [{ label: "Setujui", status: "APPROVED" }, { label: "Batalkan", status: "CANCELLED" }],
   APPROVED: [{ label: "Batalkan", status: "CANCELLED" }],
 };
 
@@ -35,12 +36,12 @@ export default async function CashflowPlanPage({ searchParams }: { searchParams:
 
   return (
     <div>
-      <PageHeader title="Cashflow Plan" description="Rencana cash in/out ke depan — dasar untuk projected cash balance." />
+      <PageHeader title="Rencana Cashflow" description="Rencana penerimaan/pengeluaran ke depan — dasar untuk proyeksi saldo." />
       <div className="p-8">
         <ErrorBanner message={searchParams.error} />
 
         {canWrite && (
-          <form action={createPlan} className="bg-white border border-border rounded-lg p-4 mb-6 grid grid-cols-3 md:grid-cols-6 gap-3 items-end">
+          <form action={createPlan} className="bg-white border border-border rounded-lg p-4 mb-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 items-end">
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Tanggal</label>
               <input type="date" name="plan_date" required className="w-full border border-border rounded-lg px-2 py-1.5 text-sm" />
@@ -58,8 +59,8 @@ export default async function CashflowPlanPage({ searchParams }: { searchParams:
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Tipe</label>
               <select name="type" required className="w-full border border-border rounded-lg px-2 py-1.5 text-sm">
-                <option value="CASH_IN">Cash In</option>
-                <option value="CASH_OUT">Cash Out</option>
+                <option value="CASH_IN">Penerimaan</option>
+                <option value="CASH_OUT">Pengeluaran</option>
               </select>
             </div>
             <div>
@@ -83,13 +84,13 @@ export default async function CashflowPlanPage({ searchParams }: { searchParams:
             </div>
             <div className="col-span-3 md:col-span-6">
               <button type="submit" className="bg-navy text-white rounded-lg px-4 py-2 text-sm font-semibold">
-                Tambah Plan
+                Tambah Rencana
               </button>
             </div>
           </form>
         )}
 
-        <div className="bg-white border border-border rounded-lg overflow-hidden">
+        <div className="bg-white border border-border rounded-lg overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-surface text-left text-xs uppercase text-gray-500">
               <tr>
@@ -108,14 +109,14 @@ export default async function CashflowPlanPage({ searchParams }: { searchParams:
                 <tr key={p.id} className="border-t border-border">
                   <td className="px-4 py-2 whitespace-nowrap">{formatDateID(p.plan_date)}</td>
                   <td className="px-4 py-2">{p.bank_accounts?.account_name}</td>
-                  <td className="px-4 py-2">{p.type === "CASH_IN" ? "Cash In" : "Cash Out"}</td>
+                  <td className="px-4 py-2">{p.type === "CASH_IN" ? "Penerimaan" : "Pengeluaran"}</td>
                   <td className="px-4 py-2 text-gray-500">{p.cashflow_categories?.name ?? "-"}</td>
                   <td className="px-4 py-2">{p.description ?? "-"}</td>
                   <td className={`px-4 py-2 text-right font-medium ${p.type === "CASH_IN" ? "text-emerald-600" : "text-red-600"}`}>
                     {formatRupiah(p.amount)}
                   </td>
                   <td className="px-4 py-2">
-                    <Badge tone={STATUS_TONE[p.status] ?? "neutral"}>{p.status}</Badge>
+                    <Badge tone={STATUS_TONE[p.status] ?? "neutral"}>{PLANNED_STATUS_LABELS[p.status] ?? p.status}</Badge>
                   </td>
                   {canWrite && (
                     <td className="px-4 py-2 text-right space-x-2 whitespace-nowrap">

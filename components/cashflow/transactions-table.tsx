@@ -1,4 +1,5 @@
 import { formatRupiah, formatDateID } from "@/lib/cashflow/format";
+import { TRANSACTION_TYPE_LABELS } from "@/lib/cashflow/labels";
 import { Badge } from "./badge";
 
 export interface TransactionRow {
@@ -35,11 +36,11 @@ export function TransactionsTable({ rows, showAccount = true }: { rows: Transact
             <th className="px-4 py-2">Deskripsi</th>
             <th className="px-4 py-2">Klasifikasi</th>
             <th className="px-4 py-2">Kategori</th>
-            <th className="px-4 py-2 text-right">Cash In</th>
-            <th className="px-4 py-2 text-right">Cash Out</th>
+            <th className="px-4 py-2 text-right">Penerimaan</th>
+            <th className="px-4 py-2 text-right">Pengeluaran</th>
             <th className="px-4 py-2 text-right">Saldo</th>
             <th className="px-4 py-2">Tipe</th>
-            <th className="px-4 py-2">Source</th>
+            <th className="px-4 py-2">Sumber</th>
           </tr>
         </thead>
         <tbody>
@@ -61,10 +62,10 @@ export function TransactionsTable({ rows, showAccount = true }: { rows: Transact
               <td className="px-4 py-2 text-right text-red-600">{Number(r.cash_out) > 0 ? formatRupiah(r.cash_out) : "-"}</td>
               <td className="px-4 py-2 text-right font-semibold">{formatRupiah(r.running_balance)}</td>
               <td className="px-4 py-2">
-                <Badge tone={TYPE_TONE[r.transaction_type] ?? "neutral"}>{r.transaction_type.replace(/_/g, " ")}</Badge>
+                <Badge tone={TYPE_TONE[r.transaction_type] ?? "neutral"}>{TRANSACTION_TYPE_LABELS[r.transaction_type] ?? r.transaction_type}</Badge>
               </td>
-              <td className="px-4 py-2 text-xs text-gray-400" title={`${r.source_sheet ?? ""} / Row ${r.source_row_id ?? "-"}`}>
-                {r.source_type === "google_sheet" ? `Sheet · Row ${r.source_row_id ?? "-"}` : r.source_type}
+              <td className="px-4 py-2 text-xs text-gray-400" title={`${r.source_sheet ?? ""} / Baris ${r.source_row_id ?? "-"}`}>
+                {r.source_type === "google_sheet" ? `Sheet · Baris ${r.source_row_id ?? "-"}` : r.source_type === "manual" ? "Manual" : "Sistem"}
               </td>
             </tr>
           ))}

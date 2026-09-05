@@ -7,5 +7,5 @@ const TONE_CLASSES: Record<string, string> = {
 };
 
 export function Badge({ children, tone = "neutral" }: { children: React.ReactNode; tone?: keyof typeof TONE_CLASSES }) {
-  return <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ${TONE_CLASSES[tone]}`}>{children}</span>;
+  return <span className={`inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold ${TONE_CLASSES[tone]}`}>{children}</span>;
 }

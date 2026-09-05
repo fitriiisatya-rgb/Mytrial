@@ -90,7 +90,7 @@ export default async function AccountDetailPage({
         actions={
           <div className="text-right">
             <div className="text-xs text-gray-500 uppercase font-semibold">Saldo Saat Ini</div>
-            <div className="text-xl font-bold text-navy">{formatRupiah(currentBalance)}</div>
+            <div className={`text-xl font-bold whitespace-nowrap ${currentBalance < 0 ? "text-red-600" : "text-navy"}`}>{formatRupiah(currentBalance)}</div>
             <div className="text-xs text-gray-400">Proyeksi 30 hari: {formatRupiah(projectedBalance)}</div>
           </div>
         }
@@ -98,23 +98,23 @@ export default async function AccountDetailPage({
       <div className="p-8 space-y-6">
         {hasDifference && (
           <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            Ditemukan selisih antara saldo kalkulasi sistem dan saldo sumber (spreadsheet) pada periode ini. Lihat Reports → Reconciliation
+            Ditemukan selisih antara saldo kalkulasi sistem dan saldo sumber (spreadsheet) pada periode ini. Lihat Laporan → Rekonsiliasi
             untuk detail.
           </div>
         )}
 
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <KpiCard label="Opening Balance" value={formatRupiah(periodOpening)} sub={formatDateID(periodFrom)} />
-          <KpiCard label="Cash In" value={formatRupiah(periodCashIn)} tone="positive" />
-          <KpiCard label="Cash Out" value={formatRupiah(periodCashOut)} tone="negative" />
-          <KpiCard label="Net Cashflow" value={formatRupiah(periodCashIn - periodCashOut)} tone={periodCashIn - periodCashOut >= 0 ? "positive" : "negative"} />
-          <KpiCard label="Closing Balance" value={formatRupiah(periodClosing)} sub={formatDateID(periodTo)} />
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+          <KpiCard label="Saldo Awal" value={formatRupiah(periodOpening)} sub={formatDateID(periodFrom)} />
+          <KpiCard label="Penerimaan" value={formatRupiah(periodCashIn)} tone="positive" />
+          <KpiCard label="Pengeluaran" value={formatRupiah(periodCashOut)} tone="negative" />
+          <KpiCard label="Arus Kas Bersih" value={formatRupiah(periodCashIn - periodCashOut)} tone={periodCashIn - periodCashOut >= 0 ? "positive" : "negative"} />
+          <KpiCard label="Saldo Akhir" value={formatRupiah(periodClosing)} sub={formatDateID(periodTo)} />
         </div>
 
         <div className="bg-white border border-border rounded-lg p-4">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-sm font-semibold text-navy">Daily Running Balance (30 hari terakhir)</h2>
-            {hasDifference && <Badge tone="warning">Reconciliation: DIFFERENCE</Badge>}
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+            <h2 className="text-sm font-semibold text-navy">Saldo Harian (30 hari terakhir)</h2>
+            {hasDifference && <Badge tone="warning">Rekonsiliasi: Selisih</Badge>}
           </div>
           <CashPositionChart data={chartData} />
         </div>

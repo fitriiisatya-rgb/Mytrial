@@ -15,7 +15,7 @@ export function KpiCard({
   return (
     <div className="bg-white border border-border rounded-lg p-4">
       <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{label}</div>
-      <div className={`mt-1.5 text-xl font-bold ${toneClass}`}>{value}</div>
+      <div className={`mt-1.5 text-xl font-bold whitespace-nowrap ${toneClass}`}>{value}</div>
       {sub && <div className="mt-1 text-xs text-gray-400">{sub}</div>}
     </div>
   );

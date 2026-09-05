@@ -1,13 +1,16 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database.types";
 import { fetchSheetRows } from "./googleSheets";
-import { resolveColumnMap, getCell, type ColumnMap } from "./columnMapping";
+import { resolveColumnMap, getCell } from "./columnMapping";
 import { parseSheetAmount, parseSheetDate } from "./parse";
 import { buildSourceFingerprint } from "./fingerprint";
 import { suggestInternalTransfers } from "./transferMatcher";
 import { evaluateAlerts } from "./alerts";
 
 type DB = SupabaseClient<Database>;
+
+/** Injected in tests so the full sync pipeline can run against a synthetic sheet without a live Google API call. Defaults to the real fetch in production. */
+export type SheetFetcher = (spreadsheetId: string, sheetName: string) => Promise<string[][]>;
 
 export interface SyncResult {
   batchId: string;
@@ -59,10 +62,51 @@ function chunk<T>(arr: T[], size: number): T[][] {
   return out;
 }
 
+/**
+ * "Jangan assume debit/kredit polarity secara diam-diam" — the app defaults
+ * to a documented convention (Debit = Cash Out, Kredit = Cash In) but never
+ * trusts it blindly. After every sync, this compares the freshly rebuilt
+ * calculated balance against the spreadsheet's own Saldo column for the
+ * accounts just touched. A LOW isolated mismatch is normal data noise
+ * (rounding, a manually corrected row) and is already surfaced per-day via
+ * RECONCILIATION_DIFFERENCE alerts. A HIGH mismatch rate across an account's
+ * recent history is a different, more urgent signal — it usually means the
+ * polarity is inverted for that sheet — so it gets its own, louder sync
+ * issue instead of being lost among ordinary daily differences.
+ */
+async function checkPolarityConsistency(supabase: DB, batchId: string, sheetName: string, touchedAccountIds: string[]): Promise<void> {
+  for (const accountId of touchedAccountIds) {
+    const { data: snapshots } = await supabase
+      .from("account_balance_snapshots")
+      .select("reconciliation_status, source_balance")
+      .eq("bank_account_id", accountId)
+      .not("source_balance", "is", null)
+      .order("snapshot_date", { ascending: false })
+      .limit(30);
+
+    const checkable = snapshots ?? [];
+    if (checkable.length < 3) continue; // not enough source-balance data points to judge polarity
+
+    const differenceCount = checkable.filter((s) => s.reconciliation_status === "DIFFERENCE").length;
+    const ratio = differenceCount / checkable.length;
+    if (ratio > 0.5) {
+      const { data: account } = await supabase.from("bank_accounts").select("account_name").eq("id", accountId).maybeSingle();
+      await supabase.from("sync_errors").insert({
+        sync_batch_id: batchId,
+        source_sheet: sheetName,
+        issue_type: "running_balance_mismatch",
+        message: `Saldo kalkulasi berbeda dari saldo spreadsheet pada ${differenceCount}/${checkable.length} hari terakhir untuk rekening "${account?.account_name ?? accountId}". Ini sering berarti polaritas Debit/Kredit terbalik untuk sheet ini — periksa Settings > Google Sheet Sync.`,
+      });
+    }
+  }
+}
+
 export async function runGoogleSheetSync(
   supabase: DB,
-  opts: { triggeredBy: string | null; triggerType: "manual" | "cron" }
+  opts: { triggeredBy: string | null; triggerType: "manual" | "cron" },
+  deps: { fetchRows?: SheetFetcher } = {}
 ): Promise<SyncResult> {
+  const fetchRows = deps.fetchRows ?? fetchSheetRows;
   const config = await loadSyncConfig(supabase);
 
   const { data: batch, error: batchError } = await supabase
@@ -92,7 +136,7 @@ export async function runGoogleSheetSync(
 
   let rows: string[][];
   try {
-    rows = await fetchSheetRows(config.spreadsheetId, config.sheetName);
+    rows = await fetchRows(config.spreadsheetId, config.sheetName);
   } catch (err) {
     return fail(err instanceof Error ? err.message : "Failed to fetch Google Sheet");
   }
@@ -124,6 +168,14 @@ export async function runGoogleSheetSync(
   const errorRows: Database["public"]["Tables"]["sync_errors"]["Insert"][] = [];
   let rowsRead = 0;
   let rowsSkippedBlank = 0;
+  // RULE (opening balance): a brand-new account's opening balance must come
+  // from ITS OWN first "no debit, no kredit, saldo only" row (a typical
+  // "Saldo Awal" line in a buku bank sheet) — never from a combined/gabungan
+  // running saldo, and never overwritten once set. Scoped to accounts
+  // created by *this* sync run so an existing, manually-configured opening
+  // balance is never touched by a later blank row elsewhere in the sheet.
+  const newlyCreatedAccounts = new Set<string>();
+  const openingCandidates = new Map<string, { balance: number; date: string }>();
 
   for (let i = 0; i < dataRows.length; i++) {
     const row = dataRows[i]!;
@@ -162,6 +214,7 @@ export async function runGoogleSheetSync(
       }
       bankAccountId = created.id;
       bankByLabel.set(bankRaw.trim().toLowerCase(), bankAccountId);
+      newlyCreatedAccounts.add(bankAccountId);
       errorRows.push({ sync_batch_id: batchId, source_sheet: config.sheetName, source_row_id: sourceRowId, raw_data: { row }, issue_type: "unknown_account", message: `Rekening baru "${bankRaw}" otomatis dibuat — mohon lengkapi opening balance di Settings > Rekening Bank.`, status: "open" });
     }
 
@@ -173,6 +226,7 @@ export async function runGoogleSheetSync(
 
     const debit = parseSheetAmount(debitRaw);
     const kredit = parseSheetAmount(kreditRaw);
+    const sourceBalance = saldoRaw === undefined ? null : parseSheetAmount(saldoRaw);
     if (debit === null || kredit === null) {
       errorRows.push({ sync_batch_id: batchId, source_sheet: config.sheetName, source_row_id: sourceRowId, raw_data: { row }, issue_type: "invalid_amount", message: `Debit/Kredit tidak valid: "${debitRaw ?? ""}" / "${kreditRaw ?? ""}"` });
       continue;
@@ -183,12 +237,18 @@ export async function runGoogleSheetSync(
     }
     if (debit === 0 && kredit === 0) {
       rowsSkippedBlank++;
+      // A "Saldo Awal"-style line (no movement, just a balance) for a
+      // brand-new account, seen for the first time — this is where the
+      // account's real opening balance comes from, per-account, not from
+      // some sheet-wide combined saldo.
+      if (newlyCreatedAccounts.has(bankAccountId) && sourceBalance !== null && !openingCandidates.has(bankAccountId)) {
+        openingCandidates.set(bankAccountId, { balance: sourceBalance, date: transactionDate });
+      }
       continue;
     }
 
     const cashIn = config.debitIsCashOut ? kredit : debit;
     const cashOut = config.debitIsCashOut ? debit : kredit;
-    const sourceBalance = saldoRaw === undefined ? null : parseSheetAmount(saldoRaw);
 
     const fingerprint = buildSourceFingerprint({
       sourceSheet: config.sheetName,
@@ -204,6 +264,13 @@ export async function runGoogleSheetSync(
       bankAccountId, transactionDate, unit, classification, description,
       cashIn, cashOut, sourceBalance, sourceRowId, fingerprint,
     });
+  }
+
+  for (const [accountId, candidate] of openingCandidates) {
+    await supabase
+      .from("bank_accounts")
+      .update({ opening_balance: String(candidate.balance), opening_balance_date: candidate.date })
+      .eq("id", accountId);
   }
 
   // Look up which fingerprints already exist, so we can tell "brand new"
@@ -286,6 +353,7 @@ export async function runGoogleSheetSync(
     await supabase.rpc("fn_rebuild_balance_snapshots", { p_bank_account_id: accountId });
   }
 
+  await checkPolarityConsistency(supabase, batchId, config.sheetName, Array.from(touchedAccounts));
   await suggestInternalTransfers(supabase, Array.from(touchedAccounts));
   await evaluateAlerts(supabase);
 

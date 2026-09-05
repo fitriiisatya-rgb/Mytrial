@@ -4,6 +4,7 @@ import { ErrorBanner } from "@/components/master-data/error-banner";
 import { Badge } from "@/components/cashflow/badge";
 import { formatDateID } from "@/lib/cashflow/format";
 import { triggerSyncNow, saveSyncConfig, resolveSyncError } from "./actions";
+import { SYNC_ISSUE_LABELS } from "@/lib/cashflow/labels";
 
 function formatDateTimeID(iso: string | null): string {
   if (!iso) return "-";
@@ -45,32 +46,56 @@ export default async function SyncSettingsPage({ searchParams }: { searchParams:
           server-side, tidak pernah dikirim ke browser.
         </p>
 
-        <div className="bg-white border border-border rounded-lg p-4 mb-4 flex items-center justify-between">
-          <div className="text-sm">
-            <div className="text-gray-500">Sync Terakhir</div>
-            {lastBatch ? (
-              <div className="flex items-center gap-2 mt-1">
-                <Badge tone={BATCH_TONE[lastBatch.status] ?? "neutral"}>{lastBatch.status}</Badge>
-                <span className="text-gray-700">{formatDateTimeID(lastBatch.finished_at ?? lastBatch.started_at)}</span>
-                <span className="text-gray-400">
-                  · {lastBatch.rows_imported} baru, {lastBatch.rows_updated} update, {lastBatch.rows_skipped} skip, {lastBatch.rows_error} error
-                </span>
-              </div>
-            ) : (
-              <div className="text-gray-400 mt-1">Belum pernah sync.</div>
+        <div className="bg-white border border-border rounded-lg p-4 mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="font-semibold text-navy">Google Sheets</span>
+              {lastBatch && <Badge tone={BATCH_TONE[lastBatch.status] ?? "neutral"}>{lastBatch.status}</Badge>}
+            </div>
+            {canWrite && (
+              <form action={triggerSyncNow}>
+                <button type="submit" className="bg-navy text-white rounded-lg px-5 py-2.5 text-sm font-semibold">
+                  Sync Sekarang
+                </button>
+              </form>
             )}
           </div>
-          {canWrite && (
-            <form action={triggerSyncNow}>
-              <button type="submit" className="bg-navy text-white rounded-lg px-5 py-2.5 text-sm font-semibold">
-                Sync Now
-              </button>
-            </form>
+          {lastBatch ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 text-sm">
+              <div>
+                <div className="text-xs text-gray-500 uppercase">Sync Terakhir</div>
+                <div className="text-navy font-medium">{formatDateTimeID(lastBatch.finished_at ?? lastBatch.started_at)}</div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500 uppercase">Diproses</div>
+                <div className="text-navy font-medium">{lastBatch.rows_read.toLocaleString("id-ID")}</div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500 uppercase">Baru</div>
+                <div className="text-emerald-600 font-medium">{lastBatch.rows_imported.toLocaleString("id-ID")}</div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500 uppercase">Diperbarui</div>
+                <div className="text-blue-600 font-medium">{lastBatch.rows_updated.toLocaleString("id-ID")}</div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500 uppercase">Dilewati</div>
+                <div className="text-gray-500 font-medium">{lastBatch.rows_skipped.toLocaleString("id-ID")}</div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500 uppercase">Bermasalah</div>
+                <div className={lastBatch.rows_error > 0 ? "text-red-600 font-medium" : "text-gray-500 font-medium"}>
+                  {lastBatch.rows_error.toLocaleString("id-ID")}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-gray-400 text-sm">Belum pernah sync.</div>
           )}
         </div>
 
         {canWrite && (
-          <form action={saveSyncConfig} className="bg-white border border-border rounded-lg p-4 grid grid-cols-2 gap-3">
+          <form action={saveSyncConfig} className="bg-white border border-border rounded-lg p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Spreadsheet ID</label>
               <input name="spreadsheet_id" defaultValue={config.get("spreadsheet_id") ?? ""} required className="w-full border border-border rounded-lg px-3 py-2 text-sm font-mono" />
@@ -80,17 +105,17 @@ export default async function SyncSettingsPage({ searchParams }: { searchParams:
               <input name="sheet_name" defaultValue={config.get("sheet_name") ?? "Master"} required className="w-full border border-border rounded-lg px-3 py-2 text-sm" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Debit / Kredit Polarity</label>
+              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Arah Debit / Kredit</label>
               <select name="debit_credit_polarity" defaultValue={config.get("debit_credit_polarity") ?? "debit_is_cash_out"} className="w-full border border-border rounded-lg px-3 py-2 text-sm">
-                <option value="debit_is_cash_out">Debit = Cash Out, Kredit = Cash In (default buku bank)</option>
-                <option value="debit_is_cash_in">Debit = Cash In, Kredit = Cash Out</option>
+                <option value="debit_is_cash_out">Debit = Pengeluaran, Kredit = Penerimaan (default buku bank)</option>
+                <option value="debit_is_cash_in">Debit = Penerimaan, Kredit = Pengeluaran</option>
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Stale Sync Threshold (jam)</label>
+              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Ambang Batas Sinkronisasi Tertunda (jam)</label>
               <input name="stale_sync_hours" type="number" defaultValue={config.get("stale_sync_hours") ?? 24} className="w-full border border-border rounded-lg px-3 py-2 text-sm" />
             </div>
-            <div className="col-span-2">
+            <div className="md:col-span-2">
               <button type="submit" className="bg-white border border-border text-navy rounded-lg px-4 py-2 text-sm font-semibold">
                 Simpan Konfigurasi
               </button>
@@ -100,19 +125,19 @@ export default async function SyncSettingsPage({ searchParams }: { searchParams:
       </div>
 
       <div>
-        <h2 className="text-sm font-semibold text-navy mb-3">Sync Log</h2>
-        <div className="bg-white border border-border rounded-lg overflow-hidden">
+        <h2 className="text-sm font-semibold text-navy mb-3">Riwayat Sinkronisasi</h2>
+        <div className="bg-white border border-border rounded-lg overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-surface text-left text-xs uppercase text-gray-500">
               <tr>
                 <th className="px-4 py-2">Waktu</th>
                 <th className="px-4 py-2">Status</th>
-                <th className="px-4 py-2">Trigger</th>
-                <th className="px-4 py-2 text-right">Read</th>
+                <th className="px-4 py-2">Pemicu</th>
+                <th className="px-4 py-2 text-right">Diproses</th>
                 <th className="px-4 py-2 text-right">Baru</th>
-                <th className="px-4 py-2 text-right">Update</th>
-                <th className="px-4 py-2 text-right">Skip</th>
-                <th className="px-4 py-2 text-right">Error</th>
+                <th className="px-4 py-2 text-right">Diperbarui</th>
+                <th className="px-4 py-2 text-right">Dilewati</th>
+                <th className="px-4 py-2 text-right">Bermasalah</th>
               </tr>
             </thead>
             <tbody>
@@ -122,7 +147,7 @@ export default async function SyncSettingsPage({ searchParams }: { searchParams:
                   <td className="px-4 py-2">
                     <Badge tone={BATCH_TONE[b.status] ?? "neutral"}>{b.status}</Badge>
                   </td>
-                  <td className="px-4 py-2 text-gray-500">{b.trigger_type}</td>
+                  <td className="px-4 py-2 text-gray-500">{b.trigger_type === "manual" ? "Manual" : "Terjadwal"}</td>
                   <td className="px-4 py-2 text-right">{b.rows_read}</td>
                   <td className="px-4 py-2 text-right text-emerald-600">{b.rows_imported}</td>
                   <td className="px-4 py-2 text-right text-blue-600">{b.rows_updated}</td>
@@ -143,8 +168,8 @@ export default async function SyncSettingsPage({ searchParams }: { searchParams:
       </div>
 
       <div>
-        <h2 className="text-sm font-semibold text-navy mb-3">Sync Issues ({openErrors?.length ?? 0} terbuka)</h2>
-        <div className="bg-white border border-border rounded-lg overflow-hidden">
+        <h2 className="text-sm font-semibold text-navy mb-3">Kendala Sinkronisasi ({openErrors?.length ?? 0} terbuka)</h2>
+        <div className="bg-white border border-border rounded-lg overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-surface text-left text-xs uppercase text-gray-500">
               <tr>
@@ -163,7 +188,7 @@ export default async function SyncSettingsPage({ searchParams }: { searchParams:
                     {e.source_sheet} / {e.source_row_id ?? "-"}
                   </td>
                   <td className="px-4 py-2">
-                    <Badge tone={e.issue_type === "unknown_account" ? "info" : "warning"}>{e.issue_type.replace(/_/g, " ")}</Badge>
+                    <Badge tone={e.issue_type === "unknown_account" ? "info" : "warning"}>{SYNC_ISSUE_LABELS[e.issue_type] ?? e.issue_type}</Badge>
                   </td>
                   <td className="px-4 py-2">{e.message}</td>
                   {canWrite && (

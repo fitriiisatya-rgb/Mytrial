@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/cashflow/page-header";
 import { Badge } from "@/components/cashflow/badge";
 import { formatRupiah, formatDateID } from "@/lib/cashflow/format";
 import { createPaymentSchedule, updatePaymentStatus } from "./actions";
+import { PAYMENT_STATUS_LABELS } from "@/lib/cashflow/labels";
 
 const STATUS_TONE: Record<string, "neutral" | "positive" | "negative" | "warning" | "info"> = {
   DRAFT: "neutral",
@@ -15,8 +16,8 @@ const STATUS_TONE: Record<string, "neutral" | "positive" | "negative" | "warning
 };
 
 const NEXT_STATUS: Record<string, { label: string; status: string }[]> = {
-  DRAFT: [{ label: "Schedule", status: "SCHEDULED" }, { label: "Batalkan", status: "CANCELLED" }],
-  SCHEDULED: [{ label: "Approve", status: "APPROVED" }, { label: "Batalkan", status: "CANCELLED" }],
+  DRAFT: [{ label: "Jadwalkan", status: "SCHEDULED" }, { label: "Batalkan", status: "CANCELLED" }],
+  SCHEDULED: [{ label: "Setujui", status: "APPROVED" }, { label: "Batalkan", status: "CANCELLED" }],
   APPROVED: [{ label: "Tandai Dibayar", status: "PAID" }, { label: "Batalkan", status: "CANCELLED" }],
 };
 
@@ -26,6 +27,8 @@ const PRIORITY_TONE: Record<string, "neutral" | "warning" | "negative"> = {
   HIGH: "warning",
   URGENT: "negative",
 };
+
+const PRIORITY_LABELS: Record<string, string> = { LOW: "Rendah", NORMAL: "Normal", HIGH: "Tinggi", URGENT: "Mendesak" };
 
 export default async function PaymentSchedulePage({ searchParams }: { searchParams: { error?: string } }) {
   const supabase = await createClient();
@@ -43,12 +46,12 @@ export default async function PaymentSchedulePage({ searchParams }: { searchPara
 
   return (
     <div>
-      <PageHeader title="Payment Schedule" description="Jadwal pembayaran keluar — masuk sebagai upcoming cash out di dashboard & proyeksi." />
+      <PageHeader title="Jadwal Pembayaran" description="Jadwal pengeluaran mendatang — masuk sebagai pengeluaran mendatang di dashboard & proyeksi." />
       <div className="p-8">
         <ErrorBanner message={searchParams.error} />
 
         {canWrite && (
-          <form action={createPaymentSchedule} className="bg-white border border-border rounded-lg p-4 mb-6 grid grid-cols-3 md:grid-cols-6 gap-3 items-end">
+          <form action={createPaymentSchedule} className="bg-white border border-border rounded-lg p-4 mb-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 items-end">
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Jatuh Tempo</label>
               <input type="date" name="due_date" required className="w-full border border-border rounded-lg px-2 py-1.5 text-sm" />
@@ -65,7 +68,7 @@ export default async function PaymentSchedulePage({ searchParams }: { searchPara
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Payee</label>
+              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Penerima</label>
               <input name="payee" required className="w-full border border-border rounded-lg px-2 py-1.5 text-sm" />
             </div>
             <div>
@@ -86,10 +89,10 @@ export default async function PaymentSchedulePage({ searchParams }: { searchPara
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Prioritas</label>
               <select name="priority" defaultValue="NORMAL" className="w-full border border-border rounded-lg px-2 py-1.5 text-sm">
-                <option value="LOW">Low</option>
+                <option value="LOW">Rendah</option>
                 <option value="NORMAL">Normal</option>
-                <option value="HIGH">High</option>
-                <option value="URGENT">Urgent</option>
+                <option value="HIGH">Tinggi</option>
+                <option value="URGENT">Mendesak</option>
               </select>
             </div>
             <div className="col-span-3 md:col-span-6">
@@ -101,12 +104,12 @@ export default async function PaymentSchedulePage({ searchParams }: { searchPara
           </form>
         )}
 
-        <div className="bg-white border border-border rounded-lg overflow-hidden">
+        <div className="bg-white border border-border rounded-lg overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-surface text-left text-xs uppercase text-gray-500">
               <tr>
                 <th className="px-4 py-2">Jatuh Tempo</th>
-                <th className="px-4 py-2">Payee</th>
+                <th className="px-4 py-2">Penerima</th>
                 <th className="px-4 py-2">Rekening</th>
                 <th className="px-4 py-2">Kategori</th>
                 <th className="px-4 py-2 text-right">Jumlah</th>
@@ -124,10 +127,10 @@ export default async function PaymentSchedulePage({ searchParams }: { searchPara
                   <td className="px-4 py-2 text-gray-500">{p.cashflow_categories?.name ?? "-"}</td>
                   <td className="px-4 py-2 text-right font-medium text-red-600">{formatRupiah(p.amount)}</td>
                   <td className="px-4 py-2">
-                    <Badge tone={PRIORITY_TONE[p.priority] ?? "neutral"}>{p.priority}</Badge>
+                    <Badge tone={PRIORITY_TONE[p.priority] ?? "neutral"}>{PRIORITY_LABELS[p.priority] ?? p.priority}</Badge>
                   </td>
                   <td className="px-4 py-2">
-                    <Badge tone={STATUS_TONE[p.status] ?? "neutral"}>{p.status}</Badge>
+                    <Badge tone={STATUS_TONE[p.status] ?? "neutral"}>{PAYMENT_STATUS_LABELS[p.status] ?? p.status}</Badge>
                   </td>
                   {canWrite && (
                     <td className="px-4 py-2 text-right space-x-2 whitespace-nowrap">

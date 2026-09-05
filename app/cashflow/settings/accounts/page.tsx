@@ -15,14 +15,14 @@ export default async function BankAccountsSettingsPage({ searchParams }: { searc
   return (
     <div>
       <ErrorBanner message={error} />
-      <h2 className="text-lg font-semibold text-navy mb-1">Bank Accounts</h2>
+      <h2 className="text-lg font-semibold text-navy mb-1">Rekening Bank</h2>
       <p className="text-xs text-gray-500 mb-4">
         Master rekening cashflow — independen dari Chart of Accounts. Setiap rekening (mis. BCA AMOR vs BCA IKI) punya identitas
         sendiri, bukan sekadar nama bank.
       </p>
 
       {canWrite && (
-        <form action={saveBankAccount} className="bg-white border border-border rounded-lg p-4 mb-6 grid grid-cols-3 gap-3">
+        <form action={saveBankAccount} className="bg-white border border-border rounded-lg p-4 mb-6 grid grid-cols-1 md:grid-cols-3 gap-3">
           {editing && <input type="hidden" name="id" value={editing.id} />}
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Kode Rekening</label>
@@ -54,7 +54,7 @@ export default async function BankAccountsSettingsPage({ searchParams }: { searc
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Opening Balance</label>
+            <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Saldo Awal</label>
             <input
               name="opening_balance"
               type="number"
@@ -64,7 +64,7 @@ export default async function BankAccountsSettingsPage({ searchParams }: { searc
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Tanggal Opening Balance</label>
+            <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Tanggal Saldo Awal</label>
             <input
               name="opening_balance_date"
               type="date"
@@ -77,7 +77,7 @@ export default async function BankAccountsSettingsPage({ searchParams }: { searc
             <input type="checkbox" name="is_active" defaultChecked={editing?.is_active ?? true} />
             Aktif
           </label>
-          <div className="col-span-3">
+          <div className="md:col-span-3">
             <button type="submit" className="bg-navy text-white rounded-lg px-4 py-2 text-sm font-semibold">
               {editing ? "Simpan" : "Tambah Rekening"}
             </button>
@@ -85,14 +85,15 @@ export default async function BankAccountsSettingsPage({ searchParams }: { searc
         </form>
       )}
 
-      <table className="w-full text-sm bg-white border border-border rounded-lg overflow-hidden">
+      <div className="bg-white border border-border rounded-lg overflow-x-auto">
+        <table className="w-full text-sm min-w-[760px]">
         <thead className="bg-surface text-left text-xs uppercase text-gray-500">
           <tr>
             <th className="px-4 py-2">Kode</th>
             <th className="px-4 py-2">Rekening</th>
             <th className="px-4 py-2">Bank</th>
             <th className="px-4 py-2">No. Rekening</th>
-            <th className="px-4 py-2 text-right">Opening Balance</th>
+            <th className="px-4 py-2 text-right">Saldo Awal</th>
             <th className="px-4 py-2">Status</th>
             {canWrite && <th className="px-4 py-2"></th>}
           </tr>
@@ -110,7 +111,7 @@ export default async function BankAccountsSettingsPage({ searchParams }: { searc
               </td>
               <td className="px-4 py-2">{a.is_active ? "Aktif" : "Nonaktif"}</td>
               {canWrite && (
-                <td className="px-4 py-2 text-right space-x-3">
+                <td className="px-4 py-2 text-right space-x-3 whitespace-nowrap">
                   <a href={`/cashflow/settings/accounts?edit=${a.id}`} className="text-navy underline">
                     Edit
                   </a>
@@ -133,7 +134,8 @@ export default async function BankAccountsSettingsPage({ searchParams }: { searc
             </tr>
           )}
         </tbody>
-      </table>
+        </table>
+      </div>
     </div>
   );
 }

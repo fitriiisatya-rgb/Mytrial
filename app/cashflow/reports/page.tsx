@@ -14,33 +14,35 @@ type DB = SupabaseClient<Database>;
 type Range = { from: string; to: string };
 
 const TABS = [
-  { key: "consolidated", label: "Consolidated" },
+  { key: "consolidated", label: "Konsolidasi" },
   { key: "account", label: "Per Rekening" },
   { key: "category", label: "Per Kategori" },
-  { key: "transfers", label: "Internal Transfers" },
-  { key: "reconciliation", label: "Reconciliation" },
+  { key: "transfers", label: "Transfer Internal" },
+  { key: "reconciliation", label: "Rekonsiliasi" },
 ];
 
 async function ConsolidatedReport({ supabase, range }: { supabase: DB; range: Range }) {
   const summary = await getConsolidatedSummary(supabase, range);
   const rows = [
-    ["Opening Cash", summary.openingCash],
-    ["Cash In", summary.cashIn],
-    ["Cash Out", summary.cashOut],
-    ["Net Cashflow", summary.netCashflow],
-    ["Closing Cash", summary.closingCash],
+    ["Saldo Awal", summary.openingCash],
+    ["Penerimaan", summary.cashIn],
+    ["Pengeluaran", summary.cashOut],
+    ["Arus Kas Bersih", summary.netCashflow],
+    ["Saldo Akhir", summary.closingCash],
   ] as const;
   return (
-    <table className="w-full text-sm bg-white border border-border rounded-lg overflow-hidden">
-      <tbody>
-        {rows.map(([label, value]) => (
-          <tr key={label} className="border-t border-border first:border-t-0">
-            <td className="px-4 py-3 text-gray-500">{label}</td>
-            <td className="px-4 py-3 text-right font-semibold text-navy">{formatRupiah(value)}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <div className="bg-white border border-border rounded-lg overflow-x-auto">
+      <table className="w-full text-sm">
+        <tbody>
+          {rows.map(([label, value]) => (
+            <tr key={label} className="border-t border-border first:border-t-0">
+              <td className="px-4 py-3 text-gray-500">{label}</td>
+              <td className="px-4 py-3 text-right font-semibold text-navy">{formatRupiah(value)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -65,37 +67,39 @@ async function AccountReport({ supabase, range }: { supabase: DB; range: Range }
   });
 
   return (
-    <table className="w-full text-sm bg-white border border-border rounded-lg overflow-hidden">
-      <thead className="bg-surface text-left text-xs uppercase text-gray-500">
-        <tr>
-          <th className="px-4 py-2">Rekening</th>
-          <th className="px-4 py-2 text-right">Opening</th>
-          <th className="px-4 py-2 text-right">Cash In</th>
-          <th className="px-4 py-2 text-right">Cash Out</th>
-          <th className="px-4 py-2 text-right">Net</th>
-          <th className="px-4 py-2 text-right">Closing</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((r) => (
-          <tr key={r.id} className="border-t border-border">
-            <td className="px-4 py-2 font-medium text-navy">{r.account_name}</td>
-            <td className="px-4 py-2 text-right">{formatRupiah(r.opening)}</td>
-            <td className="px-4 py-2 text-right text-emerald-600">{formatRupiah(r.cashIn)}</td>
-            <td className="px-4 py-2 text-right text-red-600">{formatRupiah(r.cashOut)}</td>
-            <td className="px-4 py-2 text-right">{formatRupiah(r.net)}</td>
-            <td className="px-4 py-2 text-right font-semibold">{formatRupiah(r.closing)}</td>
-          </tr>
-        ))}
-        {rows.length === 0 && (
+    <div className="bg-white border border-border rounded-lg overflow-x-auto">
+      <table className="w-full text-sm min-w-[640px]">
+        <thead className="bg-surface text-left text-xs uppercase text-gray-500">
           <tr>
-            <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
-              Tidak ada rekening aktif.
-            </td>
+            <th className="px-4 py-2">Rekening</th>
+            <th className="px-4 py-2 text-right">Saldo Awal</th>
+            <th className="px-4 py-2 text-right">Penerimaan</th>
+            <th className="px-4 py-2 text-right">Pengeluaran</th>
+            <th className="px-4 py-2 text-right">Bersih</th>
+            <th className="px-4 py-2 text-right">Saldo Akhir</th>
           </tr>
-        )}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.id} className="border-t border-border">
+              <td className="px-4 py-2 font-medium text-navy">{r.account_name}</td>
+              <td className="px-4 py-2 text-right">{formatRupiah(r.opening)}</td>
+              <td className="px-4 py-2 text-right text-emerald-600">{formatRupiah(r.cashIn)}</td>
+              <td className="px-4 py-2 text-right text-red-600">{formatRupiah(r.cashOut)}</td>
+              <td className="px-4 py-2 text-right">{formatRupiah(r.net)}</td>
+              <td className="px-4 py-2 text-right font-semibold">{formatRupiah(r.closing)}</td>
+            </tr>
+          ))}
+          {rows.length === 0 && (
+            <tr>
+              <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
+                Tidak ada rekening aktif.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -117,31 +121,33 @@ async function CategoryReport({ supabase, range }: { supabase: DB; range: Range 
 
   const rows = Array.from(byCategory.values()).sort((a, b) => b.total - a.total);
   return (
-    <table className="w-full text-sm bg-white border border-border rounded-lg overflow-hidden">
-      <thead className="bg-surface text-left text-xs uppercase text-gray-500">
-        <tr>
-          <th className="px-4 py-2">Kategori</th>
-          <th className="px-4 py-2">Tipe</th>
-          <th className="px-4 py-2 text-right">Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((r) => (
-          <tr key={r.name} className="border-t border-border">
-            <td className="px-4 py-2">{r.name}</td>
-            <td className="px-4 py-2 text-gray-500">{r.type}</td>
-            <td className="px-4 py-2 text-right font-semibold">{formatRupiah(r.total)}</td>
-          </tr>
-        ))}
-        {rows.length === 0 && (
+    <div className="bg-white border border-border rounded-lg overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead className="bg-surface text-left text-xs uppercase text-gray-500">
           <tr>
-            <td colSpan={3} className="px-4 py-8 text-center text-gray-400">
-              Tidak ada transaksi pada periode ini.
-            </td>
+            <th className="px-4 py-2">Kategori</th>
+            <th className="px-4 py-2">Tipe</th>
+            <th className="px-4 py-2 text-right">Total</th>
           </tr>
-        )}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.name} className="border-t border-border">
+              <td className="px-4 py-2">{r.name}</td>
+              <td className="px-4 py-2 text-gray-500">{r.type === "CASH_IN" ? "Penerimaan" : r.type === "CASH_OUT" ? "Pengeluaran" : r.type}</td>
+              <td className="px-4 py-2 text-right font-semibold">{formatRupiah(r.total)}</td>
+            </tr>
+          ))}
+          {rows.length === 0 && (
+            <tr>
+              <td colSpan={3} className="px-4 py-8 text-center text-gray-400">
+                Tidak ada transaksi pada periode ini.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -158,64 +164,68 @@ async function TransfersReport({ supabase, canWrite }: { supabase: DB; canWrite:
         Sistem menyarankan pasangan transfer antar rekening berdasarkan jumlah dan tanggal yang cocok. Konfirmasi diperlukan
         sebelum sebuah transaksi dianggap internal transfer (tidak memengaruhi net cashflow eksternal).
       </p>
-      <table className="w-full text-sm bg-white border border-border rounded-lg overflow-hidden">
-        <thead className="bg-surface text-left text-xs uppercase text-gray-500">
-          <tr>
-            <th className="px-4 py-2">Tanggal</th>
-            <th className="px-4 py-2">Dari</th>
-            <th className="px-4 py-2">Ke</th>
-            <th className="px-4 py-2 text-right">Jumlah</th>
-            <th className="px-4 py-2">Confidence</th>
-            <th className="px-4 py-2">Status</th>
-            {canWrite && <th className="px-4 py-2"></th>}
-          </tr>
-        </thead>
-        <tbody>
-          {(transfers ?? []).map((t) => (
-            <tr key={t.id} className="border-t border-border">
-              <td className="px-4 py-2 whitespace-nowrap">{formatDateID(t.transfer_date)}</td>
-              <td className="px-4 py-2">{(t.from as unknown as { account_name: string } | null)?.account_name ?? "-"}</td>
-              <td className="px-4 py-2">{(t.to as unknown as { account_name: string } | null)?.account_name ?? "-"}</td>
-              <td className="px-4 py-2 text-right font-semibold">{formatRupiah(t.amount)}</td>
-              <td className="px-4 py-2">
-                <Badge tone={t.match_confidence === "high" ? "positive" : t.match_confidence === "medium" ? "warning" : "neutral"}>
-                  {t.match_confidence}
-                </Badge>
-              </td>
-              <td className="px-4 py-2">
-                <Badge tone={t.status === "confirmed" ? "positive" : t.status === "rejected" ? "negative" : "warning"}>{t.status}</Badge>
-              </td>
-              {canWrite && (
-                <td className="px-4 py-2 text-right space-x-2 whitespace-nowrap">
-                  {t.status === "suggested" && (
-                    <>
-                      <form action={confirmInternalTransfer} className="inline">
-                        <input type="hidden" name="id" value={t.id} />
-                        <button type="submit" className="text-navy underline text-xs">
-                          Confirm
-                        </button>
-                      </form>
-                      <form action={rejectInternalTransfer} className="inline">
-                        <input type="hidden" name="id" value={t.id} />
-                        <button type="submit" className="text-gray-400 underline text-xs">
-                          Reject
-                        </button>
-                      </form>
-                    </>
-                  )}
-                </td>
-              )}
-            </tr>
-          ))}
-          {!transfers?.length && (
+      <div className="bg-white border border-border rounded-lg overflow-x-auto">
+        <table className="w-full text-sm min-w-[720px]">
+          <thead className="bg-surface text-left text-xs uppercase text-gray-500">
             <tr>
-              <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
-                Belum ada kandidat internal transfer.
-              </td>
+              <th className="px-4 py-2">Tanggal</th>
+              <th className="px-4 py-2">Dari</th>
+              <th className="px-4 py-2">Ke</th>
+              <th className="px-4 py-2 text-right">Jumlah</th>
+              <th className="px-4 py-2">Keyakinan</th>
+              <th className="px-4 py-2">Status</th>
+              {canWrite && <th className="px-4 py-2"></th>}
             </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {(transfers ?? []).map((t) => (
+              <tr key={t.id} className="border-t border-border">
+                <td className="px-4 py-2 whitespace-nowrap">{formatDateID(t.transfer_date)}</td>
+                <td className="px-4 py-2">{(t.from as unknown as { account_name: string } | null)?.account_name ?? "-"}</td>
+                <td className="px-4 py-2">{(t.to as unknown as { account_name: string } | null)?.account_name ?? "-"}</td>
+                <td className="px-4 py-2 text-right font-semibold">{formatRupiah(t.amount)}</td>
+                <td className="px-4 py-2">
+                  <Badge tone={t.match_confidence === "high" ? "positive" : t.match_confidence === "medium" ? "warning" : "neutral"}>
+                    {t.match_confidence === "high" ? "Tinggi" : t.match_confidence === "medium" ? "Sedang" : t.match_confidence === "low" ? "Rendah" : "Manual"}
+                  </Badge>
+                </td>
+                <td className="px-4 py-2">
+                  <Badge tone={t.status === "confirmed" ? "positive" : t.status === "rejected" ? "negative" : "warning"}>
+                    {t.status === "confirmed" ? "Dikonfirmasi" : t.status === "rejected" ? "Ditolak" : "Disarankan"}
+                  </Badge>
+                </td>
+                {canWrite && (
+                  <td className="px-4 py-2 text-right space-x-2 whitespace-nowrap">
+                    {t.status === "suggested" && (
+                      <>
+                        <form action={confirmInternalTransfer} className="inline">
+                          <input type="hidden" name="id" value={t.id} />
+                          <button type="submit" className="text-navy underline text-xs">
+                            Konfirmasi
+                          </button>
+                        </form>
+                        <form action={rejectInternalTransfer} className="inline">
+                          <input type="hidden" name="id" value={t.id} />
+                          <button type="submit" className="text-gray-400 underline text-xs">
+                            Tolak
+                          </button>
+                        </form>
+                      </>
+                    )}
+                  </td>
+                )}
+              </tr>
+            ))}
+            {!transfers?.length && (
+              <tr>
+                <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
+                  Belum ada kandidat transfer internal.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -231,44 +241,46 @@ async function ReconciliationReport({ supabase }: { supabase: DB }) {
   return (
     <div>
       <p className="text-xs text-gray-500 mb-4">
-        Opening + Cash In − Cash Out dibandingkan dengan saldo dari spreadsheet (jika tersedia). Selisih ditampilkan apa
-        adanya — RULE 8: tidak disembunyikan.
+        Saldo Awal + Penerimaan − Pengeluaran dibandingkan dengan saldo dari spreadsheet (jika tersedia). Selisih ditampilkan apa
+        adanya — tidak disembunyikan.
       </p>
-      <table className="w-full text-sm bg-white border border-border rounded-lg overflow-hidden">
-        <thead className="bg-surface text-left text-xs uppercase text-gray-500">
-          <tr>
-            <th className="px-4 py-2">Tanggal</th>
-            <th className="px-4 py-2">Rekening</th>
-            <th className="px-4 py-2 text-right">Saldo Sistem</th>
-            <th className="px-4 py-2 text-right">Saldo Spreadsheet</th>
-            <th className="px-4 py-2 text-right">Selisih</th>
-            <th className="px-4 py-2">Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {(diffs ?? []).map((d) => (
-            <tr key={d.id} className="border-t border-border">
-              <td className="px-4 py-2 whitespace-nowrap">{formatDateID(d.snapshot_date)}</td>
-              <td className="px-4 py-2">{d.bank_accounts?.account_name}</td>
-              <td className="px-4 py-2 text-right">{formatRupiah(d.closing_balance)}</td>
-              <td className="px-4 py-2 text-right">{formatRupiah(d.source_balance)}</td>
-              <td className="px-4 py-2 text-right text-red-600 font-semibold">
-                {formatRupiah(Number(d.source_balance) - Number(d.closing_balance))}
-              </td>
-              <td className="px-4 py-2">
-                <Badge tone="negative">DIFFERENCE</Badge>
-              </td>
-            </tr>
-          ))}
-          {!diffs?.length && (
+      <div className="bg-white border border-border rounded-lg overflow-x-auto">
+        <table className="w-full text-sm min-w-[640px]">
+          <thead className="bg-surface text-left text-xs uppercase text-gray-500">
             <tr>
-              <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
-                Tidak ada selisih rekonsiliasi. Semua saldo cocok (MATCHED).
-              </td>
+              <th className="px-4 py-2">Tanggal</th>
+              <th className="px-4 py-2">Rekening</th>
+              <th className="px-4 py-2 text-right">Saldo Sistem</th>
+              <th className="px-4 py-2 text-right">Saldo Spreadsheet</th>
+              <th className="px-4 py-2 text-right">Selisih</th>
+              <th className="px-4 py-2">Status</th>
             </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {(diffs ?? []).map((d) => (
+              <tr key={d.id} className="border-t border-border">
+                <td className="px-4 py-2 whitespace-nowrap">{formatDateID(d.snapshot_date)}</td>
+                <td className="px-4 py-2">{d.bank_accounts?.account_name}</td>
+                <td className="px-4 py-2 text-right">{formatRupiah(d.closing_balance)}</td>
+                <td className="px-4 py-2 text-right">{formatRupiah(d.source_balance)}</td>
+                <td className="px-4 py-2 text-right text-red-600 font-semibold">
+                  {formatRupiah(Number(d.source_balance) - Number(d.closing_balance))}
+                </td>
+                <td className="px-4 py-2">
+                  <Badge tone="negative">Selisih</Badge>
+                </td>
+              </tr>
+            ))}
+            {!diffs?.length && (
+              <tr>
+                <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
+                  Tidak ada selisih rekonsiliasi. Semua saldo cocok.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

@@ -7,11 +7,11 @@ const NAV = [
   { href: "/cashflow/dashboard", label: "Dashboard" },
   { href: "/cashflow/accounts", label: "Rekening" },
   { href: "/cashflow/transactions", label: "Transaksi" },
-  { href: "/cashflow/plan", label: "Cashflow Plan" },
-  { href: "/cashflow/calendar", label: "Calendar" },
-  { href: "/cashflow/payment", label: "Payment" },
-  { href: "/cashflow/reports", label: "Reports" },
-  { href: "/cashflow/settings", label: "Settings" },
+  { href: "/cashflow/plan", label: "Rencana Cashflow" },
+  { href: "/cashflow/calendar", label: "Kalender Cashflow" },
+  { href: "/cashflow/payment", label: "Jadwal Pembayaran" },
+  { href: "/cashflow/reports", label: "Laporan" },
+  { href: "/cashflow/settings", label: "Pengaturan" },
 ];
 
 export default async function CashflowLayout({ children }: { children: React.ReactNode }) {

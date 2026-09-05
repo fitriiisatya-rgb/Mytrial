@@ -54,10 +54,10 @@ export function TransactionFilterBar({
         <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Tipe</label>
         <select name="type" defaultValue={values.transactionType ?? ""} className="w-full border border-border rounded-lg px-2 py-1.5 text-sm">
           <option value="">Semua</option>
-          <option value="CASH_IN">Cash In</option>
-          <option value="CASH_OUT">Cash Out</option>
-          <option value="INTERNAL_TRANSFER_IN">Transfer In</option>
-          <option value="INTERNAL_TRANSFER_OUT">Transfer Out</option>
+          <option value="CASH_IN">Penerimaan</option>
+          <option value="CASH_OUT">Pengeluaran</option>
+          <option value="INTERNAL_TRANSFER_IN">Transfer Masuk</option>
+          <option value="INTERNAL_TRANSFER_OUT">Transfer Keluar</option>
         </select>
       </div>
       <div>
