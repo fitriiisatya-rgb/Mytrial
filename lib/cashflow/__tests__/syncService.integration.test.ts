@@ -222,3 +222,34 @@ test("sync pipeline: never assumes Debit/Kredit polarity silently — a wrong po
   assert.ok(mismatchError, "a systematic Saldo mismatch across multiple days must raise a dedicated running_balance_mismatch issue, not just quietly accumulate 5 separate daily differences");
   assert.match(mismatchError!.message as string, /polaritas/i);
 });
+
+test("sync pipeline: an internal transfer pair is only ever SUGGESTED, never auto-confirmed", async () => {
+  const db = makeDb();
+  const header = ["Tanggal", "Bank / Rekening", "Unit", "Klasifikasi", "Deskripsi", "Debit", "Kredit", "Saldo"];
+  const rows: string[][] = [
+    header,
+    // BCA AMOR sends 100jt out...
+    ["05/08/2026", "BCA AMOR 3722227", "HO", "Transfer", "Transfer ke BCA IKI", "100.000.000", "", "400.000.000"],
+    // ...and BCA IKI receives the identical amount the same day. Same
+    // amount + same date + "transfer" keyword on both sides = high confidence.
+    ["05/08/2026", "BCA IKI 343352", "Outlet IKI", "Transfer", "Terima transfer dari BCA Amor", "", "100.000.000", "190.000.000"],
+  ];
+
+  const result = await runGoogleSheetSync(db as unknown as Parameters<typeof runGoogleSheetSync>[0], { triggeredBy: null, triggerType: "manual" }, { fetchRows: async () => rows });
+  assert.equal(result.rowsImported, 2);
+
+  const suggestions = db.tables.internal_transfers!;
+  assert.equal(suggestions.length, 1, "a matching pair (same amount, same date, transfer keyword, different accounts) must produce exactly one suggestion");
+  assert.equal(suggestions[0]!.status, "suggested", "RULE: never auto-confirm, regardless of confidence");
+  assert.equal(suggestions[0]!.match_confidence, "high");
+
+  // Until a human confirms it, both legs must still read as plain
+  // CASH_OUT/CASH_IN — RULE 3 (excluding it from consolidated external
+  // cashflow) only applies after confirmation.
+  const txns = db.tables.cashflow_transactions!;
+  const outLeg = txns.find((t) => t.description === "Transfer ke BCA IKI");
+  const inLeg = txns.find((t) => t.description === "Terima transfer dari BCA Amor");
+  assert.equal(outLeg!.transaction_type, "CASH_OUT");
+  assert.equal(inLeg!.transaction_type, "CASH_IN");
+  assert.equal(outLeg!.internal_transfer_id, undefined, "no transaction row is linked to the transfer until it is confirmed");
+});
