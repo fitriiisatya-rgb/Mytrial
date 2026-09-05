@@ -24,6 +24,9 @@ export default async function AdminHome() {
       <Link href="/master-data" className="inline-block mt-4 text-sm text-navy underline">
         Master Data →
       </Link>
+      <Link href="/cashflow/dashboard" className="inline-block mt-4 ml-4 text-sm text-navy underline">
+        Cashflow Management System →
+      </Link>
       <p className="text-sm text-gray-400 mt-4">Manajemen user &amp; role dibangun di Phase 3.</p>
     </main>
   );

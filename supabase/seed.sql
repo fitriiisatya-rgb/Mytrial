@@ -99,3 +99,48 @@ begin
     end if;
   end loop;
 end $$;
+
+-- =====================================================================
+-- CASHFLOW MODULE SEED (0009+) — deliberately independent of the
+-- accounting master data above. No FK to entities/coa/outlets.
+-- =====================================================================
+
+insert into cashflow_categories (code, name, type, is_internal_transfer, display_order) values
+  ('SALES', 'Sales', 'CASH_IN', false, 10),
+  ('REFUND_IN', 'Refund', 'CASH_IN', false, 20),
+  ('INVESTOR_FUNDING', 'Investor/Funding', 'CASH_IN', false, 30),
+  ('LOAN_IN', 'Loan', 'CASH_IN', false, 40),
+  ('OTHER_INCOME', 'Other Income', 'CASH_IN', false, 50),
+  ('TRANSFER_IN', 'Internal Transfer', 'CASH_IN', true, 60),
+  ('SUPPLIER', 'Supplier', 'CASH_OUT', false, 10),
+  ('PAYROLL', 'Payroll', 'CASH_OUT', false, 20),
+  ('RENT', 'Rent', 'CASH_OUT', false, 30),
+  ('UTILITIES', 'Utilities', 'CASH_OUT', false, 40),
+  ('MARKETING', 'Marketing', 'CASH_OUT', false, 50),
+  ('OPERATIONAL', 'Operational', 'CASH_OUT', false, 60),
+  ('TAX', 'Tax', 'CASH_OUT', false, 70),
+  ('CAPEX', 'Capex', 'CASH_OUT', false, 80),
+  ('OTHER_EXPENSE', 'Other Expense', 'CASH_OUT', false, 90),
+  ('TRANSFER_OUT', 'Internal Transfer', 'CASH_OUT', true, 100)
+on conflict (code) do nothing;
+
+-- Default sync/mapping configuration — editable later from
+-- Settings > Google Sheet Sync without a redeploy.
+insert into sync_config (key, value) values
+  ('spreadsheet_id', '"1D6Hh7LCC9L2nRwqEguc5JLM9kOUl9WyTY3o4v5gs_RQ"'),
+  ('sheet_name', '"Master"'),
+  -- ASSUMPTION (documented): in "BUKU BANK" sheets, Debit = uang keluar
+  -- (cash out), Kredit = uang masuk (cash in) — the standard Indonesian
+  -- bank-book convention. Change to "debit_is_cash_in" if a sheet proves
+  -- otherwise; the sync engine reads this key, never hardcodes polarity.
+  ('debit_credit_polarity', '"debit_is_cash_out"'),
+  ('header_row', '1'),
+  ('stale_sync_hours', '24')
+on conflict (key) do nothing;
+
+insert into alert_rules (alert_type, bank_account_id, threshold_amount, threshold_hours) values
+  ('LOW_BALANCE', null, 25000000, null),
+  ('NEGATIVE_PROJECTED_BALANCE', null, 0, null),
+  ('LARGE_PAYMENT', null, 100000000, null),
+  ('RECONCILIATION_DIFFERENCE', null, 1, null),
+  ('STALE_SYNC', null, null, 24);

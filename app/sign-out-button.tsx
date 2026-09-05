@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-export function SignOutButton() {
+export function SignOutButton({ className }: { className?: string }) {
   const router = useRouter();
   const supabase = createClient();
 
@@ -14,7 +14,7 @@ export function SignOutButton() {
         router.push("/login");
         router.refresh();
       }}
-      className="text-sm text-gray-500 hover:text-navy underline"
+      className={className ?? "text-sm text-gray-500 hover:text-navy underline"}
     >
       Keluar
     </button>
