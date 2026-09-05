@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { logAudit } from "@/lib/supabase/audit";
 
 const BASE = "/master-data/outlets";
 
@@ -17,8 +18,12 @@ function str(formData: FormData, key: string): string | null {
 
 export async function saveOutlet(formData: FormData) {
   const supabase = await createClient();
-  const id = formData.get("id") as string | null;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) fail("Sesi berakhir, silakan login kembali.");
 
+  const id = formData.get("id") as string | null;
   const row = {
     entity_id: formData.get("entity_id") as string,
     outlet_code: str(formData, "outlet_code")!,
@@ -31,22 +36,49 @@ export async function saveOutlet(formData: FormData) {
     active: formData.get("active") === "on",
   };
 
-  const { error } = id
-    ? await supabase.from("outlets").update(row).eq("id", id)
-    : await supabase.from("outlets").insert(row);
+  const { data, error } = id
+    ? await supabase.from("outlets").update(row).eq("id", id).select("id").single()
+    : await supabase.from("outlets").insert(row).select("id").single();
+
+  if (error) {
+    // Postgres unique_violation on outlet_code surfaces as a raw
+    // constraint-name error — translate it to something a non-technical
+    // user can act on instead.
+    if (error.code === "23505") fail(`Kode outlet "${row.outlet_code}" sudah digunakan.`);
+    fail(error.message);
+  }
+  await logAudit(supabase, {
+    userId: user.id,
+    action: id ? "outlet_updated" : "outlet_created",
+    entityTable: "outlets",
+    entityId: data.id,
+    newValue: row,
+  });
 
   revalidatePath(BASE);
-  if (error) fail(error.message);
-  redirect(BASE);
+  redirect(id ? `${BASE}/${id}` : BASE);
 }
 
 export async function toggleOutletActive(formData: FormData) {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) fail("Sesi berakhir, silakan login kembali.");
+
   const id = formData.get("id") as string;
   const active = formData.get("active") === "true";
 
   const { error } = await supabase.from("outlets").update({ active: !active }).eq("id", id);
-  revalidatePath(BASE);
   if (error) fail(error.message);
+  await logAudit(supabase, {
+    userId: user.id,
+    action: active ? "outlet_deactivated" : "outlet_activated",
+    entityTable: "outlets",
+    entityId: id,
+    newValue: { active: !active },
+  });
+
+  revalidatePath(BASE);
   redirect(BASE);
 }
