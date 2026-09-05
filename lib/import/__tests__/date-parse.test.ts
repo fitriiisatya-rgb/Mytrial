@@ -42,6 +42,14 @@ test("parseImportDate rejects a blank date", () => {
   assert.ok(result.error);
 });
 
+test("parseImportDate reads the real Buku Bank export's 2-digit-year format (01-Aug-26)", () => {
+  assert.equal(parseImportDate("01-Aug-26").date, "2026-08-01");
+});
+
+test("parseImportDate reads a 2-digit year on the numeric DD/MM/YY format too", () => {
+  assert.equal(parseImportDate("05-03-26").date, "2026-03-05");
+});
+
 test("parseImportDate reads an Excel serial date number", () => {
   // 45658 is 2025-01-01 in Excel's day-count system.
   assert.equal(parseImportDate(45658).date, "2025-01-01");

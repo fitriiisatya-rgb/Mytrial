@@ -84,10 +84,11 @@ export function classifyBankRows(params: {
   const { source, rows, banks, existingDedupeKeys } = params;
   const seenInBatch = new Set<string>();
   const seenSuspectKeys = new Map<string, { rowNumber: number }>();
+  const fingerprintOccurrences = new Map<string, number>();
   const classified: ClassifiedBankRow[] = [];
 
   const summary = {
-    totalRows: rows.length,
+    totalRows: 0,
     expenseCandidates: 0,
     debitOnlyIgnored: 0,
     bankNotFound: 0,
@@ -100,6 +101,19 @@ export function classifyBankRows(params: {
 
   for (const row of rows) {
     const bankLabel = (row.bank ?? "").trim();
+    const dateRaw = row.date == null ? "" : String(row.date).trim();
+    const debitRaw = row.debit == null ? "" : String(row.debit).trim();
+    const creditRaw = row.credit == null ? "" : String(row.credit).trim();
+    // A row with no bank, no date, and no amounts carries no transaction
+    // at all — typically a Saldo/running-balance formula copied down
+    // past the last real entry in a spreadsheet export (confirmed
+    // against a real Buku Bank file: 90+ such rows, all trailing/
+    // interspersed padding). Never counted at all, not even toward
+    // totalRows — it isn't a source row to begin with, so it can't be a
+    // malformed one either.
+    if (bankLabel === "" && dateRaw === "" && debitRaw === "" && creditRaw === "") continue;
+
+    summary.totalRows++;
     const { date, error: dateError } = parseImportDate(row.date);
     const { sen: debitSen, error: debitError } = parseImportAmount(row.debit);
     const { sen: creditSen, error: creditError } = parseImportAmount(row.credit);
@@ -141,7 +155,7 @@ export function classifyBankRows(params: {
       errorMessage = `Rekening bank "${bankLabel}" tidak dikenali di Master Data.`;
     }
 
-    const fingerprint = bankTransactionFingerprint({
+    const baseFingerprint = bankTransactionFingerprint({
       source,
       bankLabel,
       date: date ?? "",
@@ -150,6 +164,20 @@ export function classifyBankRows(params: {
       creditSen: credit,
       debitSen: debit,
     });
+    // Real Buku Bank exports contain many genuinely separate transactions
+    // that share identical bank/date/classification/description/amounts
+    // (e.g. several same-day Rp 3,500 "Administrasi Bank" fees, confirmed
+    // distinct via the running Saldo column each strictly decrementing).
+    // A content-only fingerprint can't tell those apart from a true
+    // duplicate, so each occurrence of the same base fingerprint within
+    // this run gets a distinct index appended. Re-importing the
+    // identical file reproduces the same sequence of indices in the same
+    // row order, so idempotency against existingDedupeKeys still holds —
+    // only within-run collisions between distinct legitimate rows are
+    // eliminated.
+    const occurrence = fingerprintOccurrences.get(baseFingerprint) ?? 0;
+    fingerprintOccurrences.set(baseFingerprint, occurrence + 1);
+    const fingerprint = occurrence === 0 ? baseFingerprint : `${baseFingerprint}::${occurrence}`;
     const dedupeKey = row.externalRef?.trim() || fingerprint;
 
     // Idempotency applies to every row that would actually be inserted

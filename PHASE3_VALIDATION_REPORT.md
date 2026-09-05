@@ -43,27 +43,36 @@ Generic importer per spec B: Date/Outlet/Description/Revenue Category/Amount/Ext
 
 ## Real Buku Bank Test
 
-**No file was actually attached to the Phase 3 request** — the message referenced one, but this session received no upload beyond the original Phase 1 zip. Rather than block on it, a synthetic file was built matching the documented real column format exactly (`supabase/tests/fixtures/buku_bank_synthetic.csv`: Bank, Tanggal, Unit, Klasifikasi, Deskripsi, Debit, Kredit, Saldo), using the 7 bank names actually seeded in Phase 1's `seed.sql`, and run through the *real* pipeline (`parseSpreadsheet` → `resolveColumnMapping` → `classifyBankRows`) — not a mock. **Please attach the real file and I'll re-run this exact validation against it and update this section.**
+**The real file was attached in a follow-up turn** (`BUKU_BANK_AGUSTUS 2026 Master2.csv`, 7,654 physical lines, real Mandiri/BCA/BSI/BRI/OCBC account statements for August 2026) and run through the exact same pipeline used for the synthetic file (`parseSpreadsheet` → `resolveColumnMapping` → `classifyBankRows`) — not a mock, not a re-typed excerpt. It is **not committed to version control**: it contains real bank account numbers and real personal names (e.g. individual payer/payee names on transfer descriptions), and committing it would put that data in git history permanently. This was my own judgment call, not something you asked for — if you'd rather it (or a redacted excerpt) be tracked in the repo for future reproducibility, say so and I'll add it.
 
-18 rows, deliberately including: 9 clean expense candidates (mixing plain integers, Indonesian `1.750.000`, and US `2,500,000.00` thousand-separator formats in the *same file*), 3 debit-only deposits, 1 unrecognized bank, 1 invalid date (`32/13/2026`), 1 unparseable amount (`tidak-ada-angka`), 2 malformed rows (both-sides-positive; both-blank), and 1 exact intra-file duplicate.
+The real file immediately exposed three real bugs no synthetic file had triggered, all fixed and re-validated (see Bugs Found & Fixed, Issues 3-5):
 
-Actual statistics from the real pipeline:
+- The export uses a **2-digit year** (`01-Aug-26`), which the date parser rejected outright (it required 4 digits).
+- The export has a **5-line title block** before the real header row; the spreadsheet parser's blank-row filtering happened *before* slicing at the user-specified header row, silently shifting every row number and making a correct `headerRow: 6` grab the wrong physical row.
+- The export has **~90 trailing/interspersed padding rows** carrying only a stale Saldo (running balance) formula value with every other column blank — not source rows at all, but the classifier was counting and scoring them as `malformed_row`.
+- Most seriously: the export contains many **genuinely separate transactions that are byte-for-byte identical in every classified field** — e.g. 9 distinct "Administrasi Bank" (bank fee) rows of exactly Rp 3,500 on the same bank/date, confirmed as 9 real, separate, balance-decrementing transactions via the running Saldo column (each row's Saldo drops by exactly 3,500). The original fingerprint (bank+date+classification+description+credit+debit, no positional disambiguator) hashed all 9 identically, so they were misclassified `duplicate_exact` — a status that is **auto-skipped at commit**, meaning 8 of 9 real transactions would have been silently destroyed on the very first import of this file. Fixed (see Issue 5).
+
+Actual statistics from the real file, after all fixes, against the 7 banks actually seeded in `seed.sql` (`BCA AMOR 352-3722227`, `BCA AMOR 352-1377494`, `BCA-Outlet 555`, `Mandiri-Outlet`, `BCA-CPKI-3521318269`, `BCA KCRI 352-3525111`, `BCA IKI 352-343352`):
 
 ```
 Headers detected: Bank, Tanggal, Unit, Klasifikasi, Deskripsi, Debit, Kredit, Saldo
 Missing required columns: none (full auto-mapping, no manual mapping needed)
-Total rows:              18
-Expense candidates:       9
-Debit-only ignored:       3
-Bank not found:           1
-Invalid date:             1
-Invalid amount:           1
-Malformed row:            2
-Duplicate (exact):        1
-Duplicate (suspected):    0
+Distinct bank labels in file: 26 (7 match seeded Master Data, 19 correctly bank_not_found)
+
+Total rows:               7,465   (7,554 parsed rows minus ~89 Saldo-only padding rows, correctly excluded)
+Expense candidates:         537
+Debit-only ignored:       6,179
+Bank not found:             493
+Invalid date:                  0
+Invalid amount:                0
+Malformed row:                  0
+Duplicate (exact):              0
+Duplicate (suspected):        256
 ```
 
-Every row's individual classification matched a hand-computed expectation exactly (verified row-by-row, not just the aggregate counts) — see the transcript in this session for the full per-row breakdown.
+537 + 6,179 + 493 + 256 = 7,465 — every row accounted for exactly once. `duplicate_exact: 0` is correct, not suspicious: this is a first import against an empty database, and the fixed fingerprint no longer collides different real rows with each other (see Issue 5). The 256 `duplicate_suspected` rows (same bank+date+credit-amount as a prior row in the file, e.g. the 9 admin-fee rows above) are flagged for human review but **still inserted** — `duplicate_suspected` never auto-skips, only `duplicate_exact` does.
+
+**Re-import idempotency confirmed on the real file**: feeding the first run's inserted dedupe keys back in as `existingDedupeKeys` (simulating "import the same file a second time") re-classifies all 7,465 rows as `duplicate_exact` — zero rows would be re-inserted.
 
 ## Duplicate / Idempotency Result
 
@@ -102,13 +111,23 @@ Described in full under Duplicate/Idempotency Result above. **Root cause**: the 
 ### Issue 2 — batch detail page's "flagged for review" list was unscoped
 **Root cause**: an early draft of `components/import/batch-detail.tsx` queried `exceptions` filtered only by `source_table in (...)`, which would have shown *every* exception system-wide on *every* batch's detail page, not just this batch's. **Fix**: first fetch this batch's own row ids from `bank_transactions_raw`/`revenue_transactions_raw`, then filter `exceptions` by `source_id in (those ids)`. **File changed**: `components/import/batch-detail.tsx`. Caught and fixed before any test run, so no separate retest entry beyond the working batch-detail queries exercised throughout `test_transaction_import.sql`.
 
+### Issue 3 — date parser rejected the real export's 2-digit year
+**Root cause**: `parseImportDate`'s numeric and "D Mon YYYY" regexes both required exactly 4 digits for the year; the real Buku Bank export uses `DD-Mon-YY` (e.g. `01-Aug-26`). **Fix**: both regexes now accept 2-4 digits, with a `resolveYear()` helper that reads a 2-digit year as `20XX` — a fixed, documented convention (this is a modern accounting system, never the 1900s), not a per-row guess. **File changed**: `lib/import/date-parse.ts`. **Retest**: 2 new regression tests (`date-parse.test.ts`), full 65-test suite passing.
+
+### Issue 4 — spreadsheet parser's blank-row filtering silently shifted `headerRow`
+**Root cause**: `parseSpreadsheet` called `XLSX.utils.sheet_to_json` with `blankrows: false`, which drops blank rows *before* the grid is sliced at `headerRow`. The real export has a 5-line title block with 2 blank lines above the actual header (row 6) — so a correctly-specified `headerRow: 6` would grab the wrong physical row, and every data row after it would be misnumbered too. A related, smaller issue: ~90 trailing/interspersed rows carrying only a stale Saldo formula value (every other column blank) were being counted and classified as `malformed_row`, since they are not blank *before* the header slice (the pre-slice title rows aren't the same rows as these post-data padding rows). **Fix**: removed `blankrows: false` (kept the default `true`, so nothing is dropped before slicing), then filter fully-blank rows *after* slicing at `headerRow` — this fixes the row-number shift and correctly drops padding without affecting header resolution. Both `classify-bank-row.ts` and `classify-revenue-row.ts` also gained an explicit early-skip for rows with no bank/date/amount content at all, so these padding rows are never counted toward `totalRows` in the first place (not even as an error). **Files changed**: `lib/import/spreadsheet-parse.ts`, `lib/import/classify-bank-row.ts`, `lib/import/classify-revenue-row.ts`. **Retest**: verified against the real file — `headerRow: 6` now resolves to the correct header (`Bank, Tanggal, Unit, Klasifikasi, Deskripsi, Debit, Kredit, Saldo`), padding rows excluded from `totalRows` entirely.
+
+### Issue 5 (CRITICAL — data loss, not just an idempotency gap) — fingerprint collided on genuinely distinct recurring transactions
+**Root cause**: the real file contains many transactions that are byte-for-byte identical across every fingerprinted field (bank, date, classification, description, credit, debit) — most strikingly 9 separate "Administrasi Bank" (bank fee) rows of exactly Rp 3,500 on the same bank/date, confirmed via the running Saldo column to be 9 real, separate, balance-decrementing transactions (Saldo drops by exactly 3,500 with each). The original content-only fingerprint had no way to tell these apart from true duplicates, so 8 of the 9 hashed identically to the 1st and were classified `duplicate_exact` — a status **auto-skipped at commit** (`toInsert = result.rows.filter(r => r.insertable && r.status !== "duplicate_exact")`). Left unfixed, the very first import of this real file would have silently discarded real financial transactions — a strictly worse failure mode than Issue 1's idempotency gap, which only risked re-inserting rows on a *second* import. **Fix**: each classifier now tracks a `Map<baseFingerprint, occurrenceCount>` while iterating rows in file order; the final fingerprint is `${baseFingerprint}::${occurrence}` for the 2nd+ occurrence of any given content within one run. This makes every occurrence within a single file distinct (never `duplicate_exact` against a sibling row), while re-importing the *identical* file a second time reproduces the same sequence of occurrence-indexed fingerprints in the same order — so idempotency against the database (Issue 1's guarantee) is fully preserved. Rows that are now merely `duplicate_suspected` instead of `duplicate_exact` (like the 8 repeat admin-fee rows) are still inserted, just flagged for human review, matching spec's existing "suspected duplicates are never auto-skipped" rule. **Files changed**: `lib/import/classify-bank-row.ts`, `lib/import/classify-revenue-row.ts`. **Retest**: 4 new regression tests (2 per classifier — "distinct rows with identical content are never duplicate_exact of each other" and "re-importing a file with repeated identical rows still fully dedupes on the second run"); re-ran the real 7,465-row file end-to-end confirming `duplicateExact: 0` on first import and 100% `duplicate_exact` on a simulated second import; re-ran all 4 SQL suites against a freshly rebuilt Postgres database (68/68 PASS, 0 regressions) since this changes the exact fingerprint values that would be persisted as `dedupe_key`.
+
 ## Remaining Risks
 
-1. **No real Buku Bank file validated yet** — see Real Buku Bank Test above. This is the one open item blocking a fully "field-proven" sign-off; please attach it for a follow-up validation pass.
-2. **Google Sheet sync's live fetch path is unverified in this sandbox** (network policy, not a code issue) — the rest of the pipeline it calls into is already validated. Recommend one real "Sync Now" click once deployed.
-3. **Private Google Sheets are out of scope for now** — documented above, needs a service-account credential this session never had.
-4. **The 10-15 min single-request processing model** (preview holds the file client-side, commit re-parses synchronously) is right-sized for the stated 10k-row target but would need a background-job redesign before the spec's own "future 1M rows" aspiration — flagged, not built speculatively.
-5. **`npm audit`** now also lists `xlsx@0.18.5`'s two known advisories (prototype pollution, ReDoS) with **no fix published on npm** (SheetJS ships the patched 0.20+ line only from their own CDN, which this sandbox's egress policy also blocks — confirmed, not routed around). Mitigated by scope: this app only ever reads cell values from files the same authenticated accounting/finance user uploads themselves (never evaluates formulas — `cellFormula: false` is set explicitly), which is a materially smaller attack surface than a public file-upload service. Recommend revisiting once `cdn.sheetjs.com` is reachable from wherever this is actually deployed, or vendoring the patched build manually.
+1. **Real Buku Bank file now validated** — see Real Buku Bank Test above. Three real bugs found and fixed (Issues 3-5), including one critical data-loss bug. Recommend one more real end-to-end test — an actual upload through the UI (not just the classification library directly) — before production use, since this validation exercised the parse→classify pipeline directly rather than the full `commitBankExpenseImport` server action against a live database with this exact file.
+2. **The real file is not committed to the repository** (see Real Buku Bank Test above) — it contains real account numbers and personal names. Only the synthetic fixture (`supabase/tests/fixtures/buku_bank_synthetic.csv`) is tracked in git. Confirm whether this is the right call, or whether a redacted version should be added for future regression coverage.
+3. **Google Sheet sync's live fetch path is unverified in this sandbox** (network policy, not a code issue) — the rest of the pipeline it calls into is already validated. Recommend one real "Sync Now" click once deployed.
+4. **Private Google Sheets are out of scope for now** — documented above, needs a service-account credential this session never had.
+5. **The 10-15 min single-request processing model** (preview holds the file client-side, commit re-parses synchronously) is right-sized for the stated 10k-row target but would need a background-job redesign before the spec's own "future 1M rows" aspiration — flagged, not built speculatively.
+6. **`npm audit`** now also lists `xlsx@0.18.5`'s two known advisories (prototype pollution, ReDoS) with **no fix published on npm** (SheetJS ships the patched 0.20+ line only from their own CDN, which this sandbox's egress policy also blocks — confirmed, not routed around). Mitigated by scope: this app only ever reads cell values from files the same authenticated accounting/finance user uploads themselves (never evaluates formulas — `cellFormula: false` is set explicitly), which is a materially smaller attack surface than a public file-upload service. Recommend revisiting once `cdn.sheetjs.com` is reachable from wherever this is actually deployed, or vendoring the patched build manually.
 
 ## Gate
 
@@ -127,9 +146,10 @@ Described in full under Duplicate/Idempotency Result above. **Root cause**: the 
 - [x] Source traceability: every raw row resolves back to batch, file/sheet, importer, timestamp — confirmed via join
 - [x] RLS preserved: investor and management both denied on every import table; accounting/super_admin/finance_manager confirmed working
 - [x] Performance: chunked batch inserts, targeted dedupe lookups, validated for the 10k-row target
-- [x] `typecheck`/`lint`/`test` (59/59)/`build` all PASS
+- [x] `typecheck`/`lint`/`test` (65/65)/`build` all PASS
 - [x] Database smoke tests: 17/17 new assertions PASS (test_transaction_import.sql), 68/68 total across all four SQL suites, zero regressions
+- [x] Real Buku Bank file (August 2026, 7,654 lines) validated end-to-end — 3 real bugs found and fixed (2-digit-year dates, header-row shift from blank title rows, fingerprint collision on genuinely recurring transactions), corrected statistics reported above, idempotency re-confirmed on the real file
 
-**FINAL STATUS: PASS** (with the one flagged follow-up: re-validate against the real Buku Bank file once attached)
+**FINAL STATUS: PASS** — real Buku Bank file validated, all found issues (including one critical data-loss bug) fixed and re-tested. One decision needed from you: whether the real file should be added to the repo (redacted or as-is) for future regression coverage — currently excluded from git for privacy (see Remaining Risks #2).
 
 Phase 3 Transaction Import PASS. Ready for Phase 4 Mapping Engine.

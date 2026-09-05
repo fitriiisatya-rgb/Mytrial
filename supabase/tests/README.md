@@ -56,7 +56,9 @@ normalization, bank/outlet matching, duplicate_exact vs duplicate_suspected,
 idempotency across every row status) are unit-tested in
 `lib/import/__tests__/*.test.ts` (part of `npm test`, 59 tests total) and
 validated end-to-end against `supabase/tests/fixtures/buku_bank_synthetic.csv`
-— see `PHASE3_VALIDATION_REPORT.md` for the actual statistics.
+and against a real Buku Bank export (not committed to this repo — contains
+real account numbers and personal names) — see `PHASE3_VALIDATION_REPORT.md`
+for the actual statistics from both.
 
 Every assertion prints exactly one `NOTICE:  PASS: <name>` or
 `NOTICE:  FAIL: <name> - <reason>` line:

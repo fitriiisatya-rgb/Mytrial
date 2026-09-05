@@ -34,21 +34,32 @@ export function parseImportDate(raw: string | number | null | undefined): Parsed
   let m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(trimmed);
   if (m) return fromParts(Number(m[1]), Number(m[2]), Number(m[3]), raw);
 
-  m = /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/.exec(trimmed);
-  if (m) return fromParts(Number(m[3]), Number(m[2]), Number(m[1]), raw);
+  m = /^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/.exec(trimmed);
+  if (m) return fromParts(resolveYear(m[3]!), Number(m[2]), Number(m[1]), raw);
 
-  m = /^(\d{1,2})[\s-]([a-zA-Z]{3,})[\s-](\d{4})$/.exec(trimmed);
+  // "01-Aug-26" / "1 Mar 2026" — the real Buku Bank export uses a
+  // 2-digit year here (DD-Mon-YY), so the year group accepts 2-4 digits.
+  m = /^(\d{1,2})[\s-]([a-zA-Z]{3,})[\s-](\d{2,4})$/.exec(trimmed);
   if (m) {
     const monthName = m[2]!;
     const month = MONTH_NAMES[monthName.toLowerCase().slice(0, 3)];
     if (!month) return { date: null, error: `unrecognized month name "${monthName}" in "${raw}"` };
-    return fromParts(Number(m[3]), month, Number(m[1]), raw);
+    return fromParts(resolveYear(m[3]!), month, Number(m[1]), raw);
   }
 
   return {
     date: null,
     error: `unrecognized date format "${raw}" — expected DD/MM/YYYY, YYYY-MM-DD, or "D Mon YYYY"`,
   };
+}
+
+/** A 2-digit year (e.g. "26" in "01-Aug-26") is always read as 20XX —
+ * this is a modern accounting system, never referencing the 1900s, so
+ * there is no genuine ambiguity to guess at. A 3-4 digit year passes
+ * through unchanged. */
+function resolveYear(raw: string): number {
+  const year = Number(raw);
+  return raw.length <= 2 ? 2000 + year : year;
 }
 
 function fromParts(year: number, month: number, day: number, raw: string | number): ParsedDate {

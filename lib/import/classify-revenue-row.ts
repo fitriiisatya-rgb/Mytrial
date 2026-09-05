@@ -65,10 +65,11 @@ export function classifyRevenueRows(params: {
   const { source, revenueSourceCode, rows, outlets, existingDedupeKeys } = params;
   const seenInBatch = new Set<string>();
   const seenSuspectKeys = new Map<string, { rowNumber: number }>();
+  const fingerprintOccurrences = new Map<string, number>();
   const classified: ClassifiedRevenueRow[] = [];
 
   const summary = {
-    totalRows: rows.length,
+    totalRows: 0,
     valid: 0,
     outletNotDetected: 0,
     invalidDate: 0,
@@ -80,6 +81,13 @@ export function classifyRevenueRows(params: {
 
   for (const row of rows) {
     const outletLabel = row.outlet?.trim() || null;
+    const dateRaw = row.date == null ? "" : String(row.date).trim();
+    const amountRaw = row.amount == null ? "" : String(row.amount).trim();
+    // No date, no outlet, no amount — spreadsheet padding, not a source
+    // row (see the matching check in classify-bank-row.ts).
+    if (dateRaw === "" && !outletLabel && amountRaw === "") continue;
+
+    summary.totalRows++;
     const { date, error: dateError } = parseImportDate(row.date);
     const { sen: amountSen, error: amountError } = parseImportAmount(row.amount);
 
@@ -117,7 +125,7 @@ export function classifyRevenueRows(params: {
     }
 
     const amount = amountSen ?? 0n;
-    const fingerprint = revenueTransactionFingerprint({
+    const baseFingerprint = revenueTransactionFingerprint({
       source,
       revenueSourceCode,
       date: date ?? "",
@@ -125,6 +133,15 @@ export function classifyRevenueRows(params: {
       description: row.description,
       amountSen: amount,
     });
+    // Same reasoning as classify-bank-row.ts: several genuinely separate
+    // revenue rows can share identical outlet/date/description/amount
+    // within one file, so an occurrence index disambiguates them within
+    // this run while still reproducing the same sequence (and therefore
+    // the same idempotency against existingDedupeKeys) on a re-import of
+    // the identical file.
+    const occurrence = fingerprintOccurrences.get(baseFingerprint) ?? 0;
+    fingerprintOccurrences.set(baseFingerprint, occurrence + 1);
+    const fingerprint = occurrence === 0 ? baseFingerprint : `${baseFingerprint}::${occurrence}`;
     const dedupeKey = row.externalRef?.trim() || fingerprint;
 
     // Idempotency applies to every row that would actually be inserted

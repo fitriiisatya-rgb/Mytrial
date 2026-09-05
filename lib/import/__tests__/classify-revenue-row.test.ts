@@ -82,3 +82,47 @@ test("re-importing the identical rows is idempotent — everything lands duplica
   const second = classifyRevenueRows({ source: "csv_upload", revenueSourceCode: "POS_CASH", rows, outlets, existingDedupeKeys: keys });
   assert.ok(second.rows.every((r) => r.status === "duplicate_exact"));
 });
+
+test("several genuinely separate rows sharing identical outlet/date/description/amount are NOT flagged duplicate_exact of each other", () => {
+  const rows = [row({ rowNumber: 1 }), row({ rowNumber: 2 }), row({ rowNumber: 3 })];
+  const result = classifyRevenueRows({
+    source: "csv_upload",
+    revenueSourceCode: "POS_CASH",
+    rows,
+    outlets,
+    existingDedupeKeys: new Set(),
+  });
+  // Never duplicate_exact (which would be silently skipped at commit) —
+  // the 2nd/3rd occurrence legitimately lands duplicate_suspected instead
+  // (same outlet+date+amount as a prior row), which is only ever flagged
+  // for human review, still inserted (insertable stays true).
+  assert.deepEqual(
+    result.rows.map((r) => r.status),
+    ["valid", "duplicate_suspected", "duplicate_suspected"]
+  );
+  assert.ok(result.rows.every((r) => r.insertable));
+  assert.equal(result.summary.duplicateExact, 0);
+  const dedupeKeys = result.rows.map((r) => r.dedupeKey);
+  assert.equal(new Set(dedupeKeys).size, 3, "each occurrence must get a distinct dedupeKey");
+});
+
+test("re-importing a file with repeated identical rows still dedupes every one on the second run", () => {
+  const rows = [row({ rowNumber: 1 }), row({ rowNumber: 2 }), row({ rowNumber: 3 })];
+  const first = classifyRevenueRows({
+    source: "csv_upload",
+    revenueSourceCode: "POS_CASH",
+    rows,
+    outlets,
+    existingDedupeKeys: new Set(),
+  });
+  const dedupeKeys = new Set(first.rows.map((r) => r.dedupeKey));
+  const second = classifyRevenueRows({
+    source: "csv_upload",
+    revenueSourceCode: "POS_CASH",
+    rows,
+    outlets,
+    existingDedupeKeys: dedupeKeys,
+  });
+  assert.ok(second.rows.every((r) => r.status === "duplicate_exact"));
+  assert.equal(second.summary.duplicateExact, 3);
+});

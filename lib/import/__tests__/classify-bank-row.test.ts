@@ -142,6 +142,46 @@ test("a negative credit amount is invalid_amount", () => {
   assert.equal(result.rows[0]?.status, "invalid_amount");
 });
 
+test("several genuinely separate rows sharing identical bank/date/classification/description/amount (e.g. recurring same-day bank admin fees) are NOT flagged duplicate_exact of each other", () => {
+  // Regression test for a real-file finding: the Buku Bank export
+  // contains many distinct Rp 3,500 "Administrasi Bank" fee rows on the
+  // same bank/date, confirmed genuinely separate transactions via the
+  // running Saldo column. A content-only fingerprint can't distinguish
+  // them from true duplicates, so auto-skipping duplicate_exact would
+  // silently destroy real financial data.
+  const rows = [
+    row({ rowNumber: 1, classification: "Administrasi Bank", description: "Adm Bank", credit: "3500" }),
+    row({ rowNumber: 2, classification: "Administrasi Bank", description: "Adm Bank", credit: "3500" }),
+    row({ rowNumber: 3, classification: "Administrasi Bank", description: "Adm Bank", credit: "3500" }),
+  ];
+  const result = classifyBankRows({ source: "csv_upload", rows, banks, existingDedupeKeys: new Set() });
+  // Never duplicate_exact (which would be silently skipped at commit) —
+  // the 2nd/3rd occurrence legitimately lands duplicate_suspected instead
+  // (same bank+date+credit as a prior row), which is only ever flagged
+  // for human review, still inserted (insertable stays true).
+  assert.deepEqual(
+    result.rows.map((r) => r.status),
+    ["expense_candidate", "duplicate_suspected", "duplicate_suspected"]
+  );
+  assert.ok(result.rows.every((r) => r.insertable));
+  assert.equal(result.summary.duplicateExact, 0);
+  const dedupeKeys = result.rows.map((r) => r.dedupeKey);
+  assert.equal(new Set(dedupeKeys).size, 3, "each occurrence must get a distinct dedupeKey");
+});
+
+test("re-importing a file with repeated identical rows still dedupes every one on the second run (occurrence-indexed fingerprint preserves idempotency)", () => {
+  const rows = [
+    row({ rowNumber: 1, classification: "Administrasi Bank", description: "Adm Bank", credit: "3500" }),
+    row({ rowNumber: 2, classification: "Administrasi Bank", description: "Adm Bank", credit: "3500" }),
+    row({ rowNumber: 3, classification: "Administrasi Bank", description: "Adm Bank", credit: "3500" }),
+  ];
+  const first = classifyBankRows({ source: "csv_upload", rows, banks, existingDedupeKeys: new Set() });
+  const dedupeKeys = new Set(first.rows.map((r) => r.dedupeKey));
+  const second = classifyBankRows({ source: "csv_upload", rows, banks, existingDedupeKeys: dedupeKeys });
+  assert.ok(second.rows.every((r) => r.status === "duplicate_exact"));
+  assert.equal(second.summary.duplicateExact, 3);
+});
+
 test("summary counts add up to the total number of rows classified", () => {
   const rows = [
     row({ rowNumber: 1 }),
