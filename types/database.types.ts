@@ -306,8 +306,8 @@ export interface Database {
       pnl_reports: {
         Row: {
           id: string; outlet_id: string; entity_id: string; accounting_period_id: string;
-          revenue: Numeric; cogs: Numeric; gross_profit: Numeric; operating_expense: Numeric;
-          operating_profit: Numeric; other_income: Numeric; other_expense: Numeric; net_profit: Numeric;
+          revenue: Numeric; cogs: Numeric; gross_profit: Numeric | null; operating_expense: Numeric;
+          operating_profit: Numeric | null; other_income: Numeric; other_expense: Numeric; net_profit: Numeric | null;
           status: PnlStatus; generated_at: string; approved_by: string | null; approved_at: string | null;
           published_at: string | null;
         };
@@ -322,7 +322,7 @@ export interface Database {
       profit_distributions: {
         Row: {
           id: string; outlet_id: string; accounting_period_id: string; pnl_report_id: string; contract_id: string;
-          net_profit_snapshot: Numeric; distribution_pct_snapshot: Numeric; distributable_profit: Numeric;
+          net_profit_snapshot: Numeric; distribution_pct_snapshot: Numeric; distributable_profit: Numeric | null;
           status: DistributionStatus; approved_by: string | null; approved_at: string | null; created_at: string;
         };
         Insert: {

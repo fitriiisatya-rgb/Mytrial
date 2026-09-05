@@ -91,7 +91,11 @@ create trigger trg_journal_balanced
 
 create or replace function fn_block_posted_journal_edit() returns trigger as $$
 begin
-  if old.status = 'posted' and new.status = 'posted' then
+  -- Once posted, the row is frozen — including flipping status away from
+  -- 'posted' to sneak in an edit. The only sanctioned way to change a
+  -- posted journal's effect is a new reversal journal referencing it via
+  -- reversal_of_id, never an UPDATE on the original row.
+  if old.status = 'posted' then
     raise exception 'Posted journals cannot be edited directly. Use a reversal journal (source_type unchanged, reversal_of_id set).';
   end if;
   return new;
@@ -101,6 +105,34 @@ $$ language plpgsql;
 create trigger trg_block_posted_edit
   before update on journal_headers
   for each row execute function fn_block_posted_journal_edit();
+
+-- CORRECTION #2 (balance-on-promotion): fn_check_journal_balanced (above)
+-- only re-checks balance when journal_lines themselves are touched while
+-- already approved/posted. Without this trigger, a header could be
+-- promoted straight from 'draft' to 'approved'/'posted' with unbalanced
+-- lines already in place, since no INSERT/UPDATE on journal_lines happens
+-- at promotion time to fire that trigger.
+create or replace function fn_check_journal_balanced_on_promotion() returns trigger as $$
+declare
+  v_debit numeric(18,2);
+  v_credit numeric(18,2);
+begin
+  if new.status in ('approved','posted') and old.status is distinct from new.status then
+    select coalesce(sum(debit),0), coalesce(sum(credit),0)
+      into v_debit, v_credit
+      from journal_lines where journal_id = new.id;
+    if v_debit <> v_credit then
+      raise exception 'Journal % cannot become % — not balanced (debit % <> credit %)',
+        new.id, new.status, v_debit, v_credit;
+    end if;
+  end if;
+  return new;
+end;
+$$ language plpgsql;
+
+create trigger trg_guard_journal_balance_on_promotion
+  before update on journal_headers
+  for each row execute function fn_check_journal_balanced_on_promotion();
 
 -- CORRECTION #5 (partial — period lock): a closed/published period
 -- accepts no new or changed journals unless the period has gone through

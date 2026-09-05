@@ -125,6 +125,40 @@ create index idx_ownership_outlet_active on investor_ownerships (outlet_id) wher
 create index idx_ownership_investor on investor_ownerships (investor_id);
 create index idx_ownership_effective on investor_ownerships (outlet_id, start_date, end_date);
 
+-- Total ownership guard: for any outlet, active ownership rows whose
+-- effective date ranges overlap must never sum to more than 100% —
+-- otherwise a distribution could hand out more than 100% of the
+-- distributable profit for a single period. Mirrors the over-allocation
+-- guard pattern used for shared-cost allocation (0006).
+create or replace function fn_check_ownership_total() returns trigger as $$
+declare
+  v_total numeric(9,6);
+begin
+  if not new.active then
+    return new;
+  end if;
+  select coalesce(sum(ownership_pct), 0) into v_total
+  from investor_ownerships
+  where outlet_id = new.outlet_id
+    and active = true
+    and id <> coalesce(new.id, '00000000-0000-0000-0000-000000000000'::uuid)
+    and start_date <= coalesce(new.end_date, 'infinity'::date)
+    and coalesce(end_date, 'infinity'::date) >= new.start_date;
+
+  v_total := v_total + new.ownership_pct;
+
+  if v_total > 100 then
+    raise exception 'Total ownership for outlet % during an overlapping period would be % percent, exceeding 100 percent',
+      new.outlet_id, v_total;
+  end if;
+  return new;
+end;
+$$ language plpgsql;
+
+create trigger trg_check_ownership_total
+  before insert or update on investor_ownerships
+  for each row execute function fn_check_ownership_total();
+
 -- CORRECTION #4 helper: ownership valid as of a given date, regardless of
 -- the `active` flag (which only tells you "not superseded yet", not
 -- "was this the row in force back in period P").
@@ -183,17 +217,17 @@ create index idx_audit_entity on audit_log (entity_table, entity_id);
 -- functions (fn_reopen_period, fn_publish_pnl) need role checks too.
 -- =====================================================================
 create or replace function auth_role() returns user_role
-language sql stable security definer as $$
+language sql stable security definer set search_path = public, pg_temp as $$
   select role from profiles where id = auth.uid();
 $$;
 
 create or replace function auth_investor_id() returns uuid
-language sql stable security definer as $$
+language sql stable security definer set search_path = public, pg_temp as $$
   select id from investors where profile_id = auth.uid();
 $$;
 
 create or replace function auth_accessible_outlets() returns setof uuid
-language sql stable security definer as $$
+language sql stable security definer set search_path = public, pg_temp as $$
   select outlet_id from investor_ownerships
   where investor_id = auth_investor_id() and active = true;
 $$;

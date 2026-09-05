@@ -41,6 +41,8 @@ create policy staff_rw_coa on coa for all
   using (auth_role() in ('super_admin','accounting','finance_manager','management'));
 create policy staff_rw_banks on banks for all
   using (auth_role() in ('super_admin','accounting','finance_manager'));
+create policy staff_rw_investors on investors for all
+  using (auth_role() in ('super_admin','accounting','finance_manager','management'));
 create policy staff_rw_revenue_sources on revenue_sources for all
   using (auth_role() in ('super_admin','accounting','finance_manager'));
 create policy staff_rw_contracts on partnership_contracts for all
@@ -71,6 +73,13 @@ create policy staff_rw_allocation_outlets on allocation_rule_outlets for all
   using (auth_role() in ('super_admin','accounting','finance_manager'));
 create policy staff_read_audit on audit_log for select
   using (auth_role() in ('super_admin','finance_manager'));
+-- Every guarded workflow function (fn_publish_pnl, fn_reopen_period, and
+-- their Phase 2+ equivalents) is a plain (non-SECURITY DEFINER) function
+-- that inserts an audit_log row as the calling user — without this policy
+-- RLS silently rejects that insert for every role, including super_admin,
+-- breaking the audit trail for every guarded action.
+create policy staff_write_audit on audit_log for insert with check (
+  auth_role() in ('super_admin','accounting','finance_manager'));
 
 -- Management + accounting/finance: read consolidated reports; only
 -- accounting/finance_manager write them (via the guarded functions above).
