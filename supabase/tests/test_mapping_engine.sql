@@ -1,6 +1,6 @@
 -- =====================================================================
 -- Phase 4 Mapping Engine test suite — exercises what only a real
--- database can prove for migration 0010: the two new exception_type
+-- database can prove for migration 0016: the two new exception_type
 -- enum values, the new bank_transactions_raw columns (matched rule FKs,
 -- shared-cost flag, mapped_at), the mapping_runs table + its RLS, and
 -- the exceptions table's (source_table, source_id) unique constraint

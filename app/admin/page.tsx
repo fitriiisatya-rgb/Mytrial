@@ -28,6 +28,9 @@ export default async function AdminHome() {
         <Link href="/import" className="text-sm text-navy underline">
           Transaction Import →
         </Link>
+        <Link href="/cashflow/dashboard" className="text-sm text-navy underline">
+          Cashflow Management System →
+        </Link>
       </div>
       <p className="text-sm text-gray-400 mt-4">Manajemen user &amp; role dibangun di Phase 3.</p>
     </main>

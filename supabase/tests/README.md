@@ -63,7 +63,7 @@ for the actual statistics from both.
 
 `test_mapping_engine.sql` (Phase 4) exercises `outlet_mapping_rules`,
 `coa_mapping_rules`, `exceptions`, `mapping_runs`, and the new
-`bank_transactions_raw` columns added by migration 0010 — the two new
+`bank_transactions_raw` columns added by migration 0016 — the two new
 `exception_type` values (`ambiguous_mapping`, `shared_cost_candidate`),
 the `exceptions` unique-per-row constraint, FK integrity on
 `matched_outlet_rule_id`/`matched_coa_rule_id`, the `mapping_runs.scope`

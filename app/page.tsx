@@ -4,8 +4,11 @@ import { createClient } from "@/lib/supabase/server";
 const ROLE_HOME: Record<string, string> = {
   investor: "/investor",
   accounting: "/accounting",
-  finance_manager: "/finance",
-  management: "/management",
+  // Finance & Management land straight in the Cashflow Management System —
+  // that's their day-to-day tool. /finance and /management still exist for
+  // the accounting-side placeholders (linked from there).
+  finance_manager: "/cashflow/dashboard",
+  management: "/cashflow/dashboard",
   super_admin: "/admin",
 };
 

@@ -1,6 +1,6 @@
 # Phase 4 Validation Report — Mapping Engine
 
-Builds on Phase 1-3 (all PASS). No existing schema, RLS, role model, Master Data, or Transaction Import code was redesigned — Phase 4 is additive: one migration (`0010_mapping_engine.sql`) adds two `exception_type` enum values, four columns on `bank_transactions_raw`, and one new table (`mapping_runs`). `outlet_mapping_rules`, `coa_mapping_rules`, and `exceptions` already existed since Phase 1's migration `0004` with exactly the shape this phase needed — this phase is what finally reads and writes them. Scope held strictly to mapping + exception handling, per the brief: **no Auto Journal, no journal_headers/journal_lines writes anywhere in this phase** — that is Phase 5.
+Builds on Phase 1-3 (all PASS). No existing schema, RLS, role model, Master Data, or Transaction Import code was redesigned — Phase 4 is additive: one migration (`0016_mapping_engine.sql`) adds two `exception_type` enum values, four columns on `bank_transactions_raw`, and one new table (`mapping_runs`). `outlet_mapping_rules`, `coa_mapping_rules`, and `exceptions` already existed since Phase 1's migration `0004` with exactly the shape this phase needed — this phase is what finally reads and writes them. Scope held strictly to mapping + exception handling, per the brief: **no Auto Journal, no journal_headers/journal_lines writes anywhere in this phase** — that is Phase 5.
 
 ## Architecture
 
@@ -58,7 +58,7 @@ The Exception Center's checkboxes use the HTML `form="bulk-resolve-form"` attrib
 
 ## Spec Item 13 — Mapping Metrics
 
-`/mapping` (Dashboard): total expense-candidate rows, outlet/COA coverage %, "fully mapped, no exception" %, open-exception counts broken down by all 10 exception types (6 Phase-4-owned + 4 Phase-3-owned, since a row can still carry an older Phase-3 exception), and top-10 rule hit counts for both outlet and COA rules (via `matched_outlet_rule_id`/`matched_coa_rule_id`, denormalized onto `bank_transactions_raw` by migration 0010 specifically so this never needs a live join over the full table). A rule with 0 hits is immediately visible in this same list — useful for spotting a rule that's never actually firing (typo'd classification, wrong bank).
+`/mapping` (Dashboard): total expense-candidate rows, outlet/COA coverage %, "fully mapped, no exception" %, open-exception counts broken down by all 10 exception types (6 Phase-4-owned + 4 Phase-3-owned, since a row can still carry an older Phase-3 exception), and top-10 rule hit counts for both outlet and COA rules (via `matched_outlet_rule_id`/`matched_coa_rule_id`, denormalized onto `bank_transactions_raw` by migration 0016 specifically so this never needs a live join over the full table). A rule with 0 hits is immediately visible in this same list — useful for spotting a rule that's never actually firing (typo'd classification, wrong bank).
 
 ## Spec Item 14 — RLS & Audit Trail
 
