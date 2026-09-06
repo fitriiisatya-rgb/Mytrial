@@ -34,6 +34,7 @@ psql -d partnership_finance_test -f supabase/tests/test_integrity.sql
 psql -d partnership_finance_test -f supabase/tests/test_rls.sql
 psql -d partnership_finance_test -f supabase/tests/test_master_data.sql
 psql -d partnership_finance_test -f supabase/tests/test_transaction_import.sql
+psql -d partnership_finance_test -f supabase/tests/test_mapping_engine.sql
 ```
 
 `test_master_data.sql` (Phase 2) exercises the exact query/mutation shapes
@@ -59,6 +60,29 @@ validated end-to-end against `supabase/tests/fixtures/buku_bank_synthetic.csv`
 and against a real Buku Bank export (not committed to this repo — contains
 real account numbers and personal names) — see `PHASE3_VALIDATION_REPORT.md`
 for the actual statistics from both.
+
+`test_mapping_engine.sql` (Phase 4) exercises `outlet_mapping_rules`,
+`coa_mapping_rules`, `exceptions`, `mapping_runs`, and the new
+`bank_transactions_raw` columns added by migration 0010 — the two new
+`exception_type` values (`ambiguous_mapping`, `shared_cost_candidate`),
+the `exceptions` unique-per-row constraint, FK integrity on
+`matched_outlet_rule_id`/`matched_coa_rule_id`, the `mapping_runs.scope`
+check constraint, and RLS denial for `investor`/`management` on the new
+table. The mapping/ranking logic itself (rule priority + specificity,
+ambiguous-match detection, interbank/shared-cost keyword heuristics,
+learning a rule from a resolved exception, similar-transaction
+suggestion) is unit-tested in `lib/mapping/__tests__/*.test.ts` (40
+tests, part of `npm test`) and validated end-to-end against
+`supabase/tests/fixtures/buku_bank_sanitized_pattern.csv` — a fully
+synthetic fixture that intentionally reproduces every edge case the real
+August 2026 Buku Bank export exposed (5-line title block before the
+header, repeated same-day/same-amount transactions including the
+Rp 3,500 bank-fee pattern, debit-only rows, an unrecognized bank, an
+unconfigured classification, duplicate-suspected pairs, a shared-cost
+classification, an interbank/interunit transfer classification, and
+re-import idempotency) without containing any real account number or
+personal name — see `PHASE4_VALIDATION_REPORT.md` for the actual
+statistics. The real file itself is never committed to this repository.
 
 Every assertion prints exactly one `NOTICE:  PASS: <name>` or
 `NOTICE:  FAIL: <name> - <reason>` line:

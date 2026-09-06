@@ -28,6 +28,9 @@ export default async function FinanceHome() {
         <Link href="/import" className="text-sm text-navy underline">
           Transaction Import →
         </Link>
+        <Link href="/mapping" className="text-sm text-navy underline">
+          Mapping Engine →
+        </Link>
       </div>
       <p className="text-sm text-gray-400 mt-4">
         Review &amp; approve journal, period reopen, dan approval bagi hasil dibangun di Phase 5 &amp; 8.

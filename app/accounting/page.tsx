@@ -28,9 +28,12 @@ export default async function AccountingHome() {
         <Link href="/import" className="text-sm text-navy underline">
           Transaction Import →
         </Link>
+        <Link href="/mapping" className="text-sm text-navy underline">
+          Mapping Engine →
+        </Link>
       </div>
       <p className="text-sm text-gray-400 mt-4">
-        Exception Center, Auto Journal, dan halaman lain di sidebar prototype dibangun di Phase 4-5.
+        Auto Journal dan halaman lain di sidebar prototype dibangun di Phase 5.
       </p>
     </main>
   );

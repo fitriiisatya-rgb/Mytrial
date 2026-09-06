@@ -6,6 +6,8 @@ import { parseSpreadsheet } from "@/lib/import/spreadsheet-parse";
 import { resolveColumnMapping, cellAt, BANK_EXPENSE_MAPPING } from "@/lib/import/column-mapping";
 import { classifyBankRows, type RawBankRowInput, type ClassifiedBankRow } from "@/lib/import/classify-bank-row";
 import { chunkedInsert } from "@/lib/import/chunked-insert";
+import { runMappingOnRows } from "@/lib/mapping/run-mapping";
+import { toSen } from "@/lib/money";
 import type { Database } from "@/types/database.types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -244,6 +246,49 @@ export async function commitBankExpenseImport(formData: FormData): Promise<{ bat
     entityId: batchId,
     newValue: result.summary,
   });
+
+  // Phase 4: run the Mapping Engine immediately on the rows that were
+  // actually just inserted as expense candidates — never on
+  // bank_not_found/debit_only/malformed/duplicate rows, which already
+  // carry their own Phase 3 exception (or none) and need a corrected
+  // re-import or human review, not an outlet/COA rule. This is the
+  // "post_import" mapping run distinct from the manual Reprocess Engine
+  // (app/mapping/actions.ts), which re-runs the identical function
+  // against whatever is still open after rules change.
+  const mappableRows = toInsert
+    .map((r, i) => ({ id: insertedIds[i]?.id, row: r }))
+    .filter((x): x is { id: string; row: (typeof toInsert)[number] } => !!x.id && x.row.status === "expense_candidate")
+    .map(({ id, row }) => ({
+      id,
+      bankId: row.bankId,
+      unitRaw: row.unit,
+      classificationRaw: row.classification,
+      descriptionRaw: row.description,
+      debitSen: toSen(row.debit),
+      creditSen: toSen(row.credit),
+      detectedOutletId: null,
+    }));
+
+  if (mappableRows.length > 0) {
+    const runStartedAt = new Date().toISOString();
+    const counters = await runMappingOnRows(supabase, mappableRows, user.id);
+    await supabase.from("mapping_runs").insert({
+      scope: "batch",
+      scope_id: batchId,
+      triggered_by: user.id,
+      trigger: "post_import",
+      started_at: runStartedAt,
+      completed_at: new Date().toISOString(),
+      rows_scanned: counters.rowsScanned,
+      rows_outlet_mapped: counters.rowsOutletMapped,
+      rows_coa_mapped: counters.rowsCoaMapped,
+      rows_ambiguous: counters.rowsAmbiguous,
+      rows_interbank_candidate: counters.rowsInterbankCandidate,
+      rows_shared_cost_candidate: counters.rowsSharedCostCandidate,
+      rows_exceptions_created: counters.rowsExceptionsCreated,
+      rows_exceptions_autoresolved: counters.rowsExceptionsAutoresolved,
+    });
+  }
 
   return { batchId };
 }

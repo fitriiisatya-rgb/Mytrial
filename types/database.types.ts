@@ -28,7 +28,7 @@ export type ExceptionType =
   | "duplicate_suspected" | "invalid_amount" | "invalid_date"
   | "unknown_classification" | "interbank_transfer" | "possible_reversal"
   | "malformed_data" | "ownership_invalid" | "revenue_source_incomplete"
-  | "bank_not_found";
+  | "bank_not_found" | "ambiguous_mapping" | "shared_cost_candidate";
 export type ExceptionStatus = "open" | "resolved" | "ignored";
 export type AllocationMethod = "equal" | "revenue_percentage" | "custom_percentage" | "manual_amount";
 export type MatchType = "exact" | "keyword" | "regex";
@@ -251,6 +251,8 @@ export interface Database {
           detected_outlet_id: string | null; detected_coa_id: string | null; is_interbank_transfer: boolean;
           transfer_pair_id: string | null; journal_id: string | null; processed: boolean;
           exception_status: ExceptionStatus | null; created_at: string; raw_payload: Record<string, unknown> | null;
+          matched_outlet_rule_id: string | null; matched_coa_rule_id: string | null;
+          is_shared_cost_candidate: boolean; mapped_at: string | null;
         };
         Insert: {
           id?: string; import_batch_id?: string | null; bank_id?: string | null; bank_label_raw: string;
@@ -259,6 +261,8 @@ export interface Database {
           source_row_ref?: string | null; fingerprint: string;
           detected_outlet_id?: string | null; detected_coa_id?: string | null; is_interbank_transfer?: boolean;
           processed?: boolean; exception_status?: ExceptionStatus | null; raw_payload?: Record<string, unknown> | null;
+          matched_outlet_rule_id?: string | null; matched_coa_rule_id?: string | null;
+          is_shared_cost_candidate?: boolean; mapped_at?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["bank_transactions_raw"]["Row"]>;
         Relationships: [
@@ -350,7 +354,22 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["outlet_mapping_rules"]["Row"], "id" | "created_at"> & { id?: string };
         Update: Partial<Database["public"]["Tables"]["outlet_mapping_rules"]["Row"]>;
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "outlet_mapping_rules_bank_id_fkey";
+            columns: ["bank_id"];
+            isOneToOne: false;
+            referencedRelation: "banks";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "outlet_mapping_rules_output_outlet_id_fkey";
+            columns: ["output_outlet_id"];
+            isOneToOne: false;
+            referencedRelation: "outlets";
+            referencedColumns: ["id"];
+          }
+        ];
       };
       coa_mapping_rules: {
         Row: {
@@ -362,7 +381,36 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["coa_mapping_rules"]["Row"], "id" | "created_at"> & { id?: string };
         Update: Partial<Database["public"]["Tables"]["coa_mapping_rules"]["Row"]>;
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "coa_mapping_rules_bank_id_fkey";
+            columns: ["bank_id"];
+            isOneToOne: false;
+            referencedRelation: "banks";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "coa_mapping_rules_outlet_id_fkey";
+            columns: ["outlet_id"];
+            isOneToOne: false;
+            referencedRelation: "outlets";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "coa_mapping_rules_result_coa_id_fkey";
+            columns: ["result_coa_id"];
+            isOneToOne: false;
+            referencedRelation: "coa";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "coa_mapping_rules_bank_coa_override_id_fkey";
+            columns: ["bank_coa_override_id"];
+            isOneToOne: false;
+            referencedRelation: "coa";
+            referencedColumns: ["id"];
+          }
+        ];
       };
       exceptions: {
         Row: {
@@ -457,6 +505,24 @@ export interface Database {
           share_amount: Numeric; status?: DistributionStatus;
         };
         Update: Partial<Database["public"]["Tables"]["investor_profit_shares"]["Row"]>;
+        Relationships: [];
+      };
+      mapping_runs: {
+        Row: {
+          id: string; scope: "batch" | "entity"; scope_id: string; triggered_by: string | null;
+          trigger: "manual" | "post_import"; started_at: string; completed_at: string | null;
+          rows_scanned: number; rows_outlet_mapped: number; rows_coa_mapped: number; rows_ambiguous: number;
+          rows_interbank_candidate: number; rows_shared_cost_candidate: number;
+          rows_exceptions_created: number; rows_exceptions_autoresolved: number; created_at: string;
+        };
+        Insert: {
+          id?: string; scope: "batch" | "entity"; scope_id: string; triggered_by?: string | null;
+          trigger?: "manual" | "post_import"; started_at?: string; completed_at?: string | null;
+          rows_scanned?: number; rows_outlet_mapped?: number; rows_coa_mapped?: number; rows_ambiguous?: number;
+          rows_interbank_candidate?: number; rows_shared_cost_candidate?: number;
+          rows_exceptions_created?: number; rows_exceptions_autoresolved?: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["mapping_runs"]["Row"]>;
         Relationships: [];
       };
       audit_log: {
