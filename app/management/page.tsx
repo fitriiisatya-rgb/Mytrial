@@ -21,8 +21,11 @@ export default async function ManagementHome() {
       <p className="text-sm text-gray-500">
         Masuk sebagai <b>{profile?.full_name}</b> ({profile?.role}).
       </p>
-      <Link href="/master-data" className="inline-block mt-4 text-sm text-navy underline">
-        Master Data →
+      <Link href="/cashflow/dashboard" className="inline-block mt-4 text-sm text-navy underline">
+        Cashflow Management System →
+      </Link>
+      <Link href="/master-data" className="inline-block mt-4 ml-4 text-sm text-navy underline">
+        Master Data (Accounting) →
       </Link>
       <p className="text-sm text-gray-400 mt-4">Laporan konsolidasi dibangun di Phase 6.</p>
     </main>
