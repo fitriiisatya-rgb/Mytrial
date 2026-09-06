@@ -1,5 +1,5 @@
 -- =====================================================================
--- 0009 — CASHFLOW MODULE: MASTER DATA (bank_accounts, categories)
+-- 0010 — CASHFLOW MODULE: MASTER DATA (bank_accounts, categories)
 -- =====================================================================
 -- This migration starts a module that is deliberately independent of the
 -- accounting domain (0001-0008): no COA, no journal, no investor/ownership

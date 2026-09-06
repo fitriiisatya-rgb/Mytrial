@@ -33,6 +33,7 @@ psql -d partnership_finance_test -f supabase/tests/010_rls_fixture.sql
 psql -d partnership_finance_test -f supabase/tests/test_integrity.sql
 psql -d partnership_finance_test -f supabase/tests/test_rls.sql
 psql -d partnership_finance_test -f supabase/tests/test_master_data.sql
+psql -d partnership_finance_test -f supabase/tests/test_transaction_import.sql
 ```
 
 `test_master_data.sql` (Phase 2) exercises the exact query/mutation shapes
@@ -41,6 +42,23 @@ selects (`outlets(name)`, `banks(coa_id → coa)`, etc.), create flows under
 `accounting` and `management` roles, and the total-ownership guard firing
 through the real insert shape the ownerships form submits. Everything it
 inserts is rolled back at the end.
+
+`test_transaction_import.sql` (Phase 3) exercises `import_batches`,
+`bank_transactions_raw`, `revenue_transactions_raw`, `exceptions`,
+`import_row_errors`, and `import_source_configs` — dedupe_key uniqueness
+(duplicate-exact prevention and re-import idempotency), the Kredit>0
+candidate-expense filter at the schema level, invalid date/money handling,
+unknown-bank flagging via `exceptions`, source traceability joins, batch
+summary accuracy, and RLS denial for `investor` and `management` (neither
+role has any policy on any import table). The row-classification business
+rules themselves (credit>0 candidate, debit-only ignored, date/money
+normalization, bank/outlet matching, duplicate_exact vs duplicate_suspected,
+idempotency across every row status) are unit-tested in
+`lib/import/__tests__/*.test.ts` (part of `npm test`, 59 tests total) and
+validated end-to-end against `supabase/tests/fixtures/buku_bank_synthetic.csv`
+and against a real Buku Bank export (not committed to this repo — contains
+real account numbers and personal names) — see `PHASE3_VALIDATION_REPORT.md`
+for the actual statistics from both.
 
 Every assertion prints exactly one `NOTICE:  PASS: <name>` or
 `NOTICE:  FAIL: <name> - <reason>` line:

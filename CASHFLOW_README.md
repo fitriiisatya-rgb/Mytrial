@@ -9,7 +9,7 @@ the accounting domain** (no COA, journal, P&L, investor/ownership) — see
 
 ## What's included (Phase 1 + 2, functional)
 
-- **Schema**: `supabase/migrations/0009`–`0014` — `bank_accounts`,
+- **Schema**: `supabase/migrations/0010`–`0015` — `bank_accounts`,
   `cashflow_categories`, `sync_config`, `sync_batches`, `cashflow_transactions`,
   `sync_errors`, `internal_transfers`, `planned_cashflows`, `payment_schedules`,
   `account_balance_snapshots`, `alert_rules`, `cashflow_alerts`, RLS policies,

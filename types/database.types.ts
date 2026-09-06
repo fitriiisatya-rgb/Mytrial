@@ -27,7 +27,8 @@ export type ExceptionType =
   | "outlet_not_detected" | "coa_not_detected" | "missing_bank_coa"
   | "duplicate_suspected" | "invalid_amount" | "invalid_date"
   | "unknown_classification" | "interbank_transfer" | "possible_reversal"
-  | "malformed_data" | "ownership_invalid" | "revenue_source_incomplete";
+  | "malformed_data" | "ownership_invalid" | "revenue_source_incomplete"
+  | "bank_not_found";
 export type ExceptionStatus = "open" | "resolved" | "ignored";
 export type AllocationMethod = "equal" | "revenue_percentage" | "custom_percentage" | "manual_amount";
 export type MatchType = "exact" | "keyword" | "regex";
@@ -241,13 +242,32 @@ export interface Database {
         Row: {
           id: string; source: ImportSourceType; source_ref: string | null; imported_by: string | null;
           imported_at: string; row_count: number; duplicate_count: number; error_count: number; status: string;
+          entity_id: string | null; source_name: string | null; started_at: string | null; completed_at: string | null;
+          valid_rows: number; skipped_rows: number; checksum: string | null;
         };
         Insert: {
           id?: string; source: ImportSourceType; source_ref?: string | null; imported_by?: string | null;
           row_count?: number; duplicate_count?: number; error_count?: number; status?: string;
+          entity_id?: string | null; source_name?: string | null; started_at?: string | null; completed_at?: string | null;
+          valid_rows?: number; skipped_rows?: number; checksum?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["import_batches"]["Insert"]>;
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "import_batches_entity_id_fkey";
+            columns: ["entity_id"];
+            isOneToOne: false;
+            referencedRelation: "entities";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "import_batches_imported_by_fkey";
+            columns: ["imported_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          }
+        ];
       };
       bank_transactions_raw: {
         Row: {
@@ -257,7 +277,7 @@ export interface Database {
           source_row_ref: string | null; fingerprint: string; dedupe_key: string;
           detected_outlet_id: string | null; detected_coa_id: string | null; is_interbank_transfer: boolean;
           transfer_pair_id: string | null; journal_id: string | null; processed: boolean;
-          exception_status: ExceptionStatus | null; created_at: string;
+          exception_status: ExceptionStatus | null; created_at: string; raw_payload: Record<string, unknown> | null;
         };
         Insert: {
           id?: string; import_batch_id?: string | null; bank_id?: string | null; bank_label_raw: string;
@@ -265,10 +285,18 @@ export interface Database {
           debit?: Numeric; credit?: Numeric; running_balance?: Numeric | null; external_ref?: string | null;
           source_row_ref?: string | null; fingerprint: string;
           detected_outlet_id?: string | null; detected_coa_id?: string | null; is_interbank_transfer?: boolean;
-          processed?: boolean;
+          processed?: boolean; exception_status?: ExceptionStatus | null; raw_payload?: Record<string, unknown> | null;
         };
         Update: Partial<Database["public"]["Tables"]["bank_transactions_raw"]["Row"]>;
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "bank_transactions_raw_import_batch_id_fkey";
+            columns: ["import_batch_id"];
+            isOneToOne: false;
+            referencedRelation: "import_batches";
+            referencedColumns: ["id"];
+          }
+        ];
       };
       revenue_transactions_raw: {
         Row: {
@@ -276,15 +304,70 @@ export interface Database {
           outlet_id: string | null; outlet_raw: string | null; description: string | null;
           revenue_category: string | null; amount: Numeric; external_ref: string | null;
           fingerprint: string; dedupe_key: string; journal_id: string | null; processed: boolean; created_at: string;
+          raw_payload: Record<string, unknown> | null;
         };
         Insert: {
           id?: string; import_batch_id?: string | null; revenue_source_id: string; txn_date: string;
           outlet_id?: string | null; outlet_raw?: string | null; description?: string | null;
           revenue_category?: string | null; amount: Numeric; external_ref?: string | null;
-          fingerprint: string; processed?: boolean;
+          fingerprint: string; processed?: boolean; raw_payload?: Record<string, unknown> | null;
         };
         Update: Partial<Database["public"]["Tables"]["revenue_transactions_raw"]["Row"]>;
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "revenue_transactions_raw_import_batch_id_fkey";
+            columns: ["import_batch_id"];
+            isOneToOne: false;
+            referencedRelation: "import_batches";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      import_row_errors: {
+        Row: {
+          id: string; import_batch_id: string; row_number: number; error_code: string; error_message: string;
+          raw_payload: Record<string, unknown> | null; created_at: string;
+        };
+        Insert: {
+          id?: string; import_batch_id: string; row_number: number; error_code: string; error_message: string;
+          raw_payload?: Record<string, unknown> | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["import_row_errors"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "import_row_errors_import_batch_id_fkey";
+            columns: ["import_batch_id"];
+            isOneToOne: false;
+            referencedRelation: "import_batches";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      import_source_configs: {
+        Row: {
+          id: string; entity_id: string; source_type: ImportSourceType; target: "bank_expense" | "revenue";
+          name: string; spreadsheet_id: string | null; sheet_name: string | null; header_row: number;
+          revenue_source_id: string | null;
+          column_mapping: Record<string, string>; active: boolean; last_sync_at: string | null;
+          created_by: string | null; created_at: string;
+        };
+        Insert: {
+          id?: string; entity_id: string; source_type: ImportSourceType; target: "bank_expense" | "revenue";
+          name: string; spreadsheet_id?: string | null; sheet_name?: string | null; header_row?: number;
+          revenue_source_id?: string | null;
+          column_mapping?: Record<string, string>; active?: boolean; last_sync_at?: string | null;
+          created_by?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["import_source_configs"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "import_source_configs_entity_id_fkey";
+            columns: ["entity_id"];
+            isOneToOne: false;
+            referencedRelation: "entities";
+            referencedColumns: ["id"];
+          }
+        ];
       };
       outlet_mapping_rules: {
         Row: {

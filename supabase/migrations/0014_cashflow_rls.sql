@@ -1,5 +1,5 @@
 -- =====================================================================
--- 0013 — CASHFLOW MODULE: ROW LEVEL SECURITY
+-- 0014 — CASHFLOW MODULE: ROW LEVEL SECURITY
 -- Reuses auth_role() from 0002. Cashflow users are super_admin,
 -- finance_manager (operates) and management (reads dashboards/reports).
 -- accounting/investor roles have no policy here => denied by default,

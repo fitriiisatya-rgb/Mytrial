@@ -1,0 +1,19 @@
+Bank,Tanggal,Unit,Klasifikasi,Deskripsi,Debit,Kredit,Saldo
+BCA AMOR 352-3722227,01/03/2026,BKPG,Operasional,Bayar listrik PLN Maret,,500000,12500000
+BCA AMOR 352-3722227,02/03/2026,BKPG,Operasional,Setoran tunai harian,200000,,12700000
+BCA AMOR 352-1377494,01/03/2026,BKBL,Sewa,Bayar sewa gedung bulan Maret,,1.750.000,8250000
+BCA-Outlet 555,03/03/2026,CPRG,Gaji,Gaji karyawan Maret minggu 1,,"2,500,000.00",15000000
+Mandiri-Outlet,04/03/2026,BAROS,Operasional,Bayar internet Indihome,,350000,4650000
+BCA-CPKI-3521318269,05/03/2026,KCRI,Operasional,Bayar listrik PLN Maret,,275000,9925000
+BCA KCRI 352-3525111,06/03/2026,KCRI,Operasional,Beli galon dan atk,,125000,3875000
+BCA IKI 352-343352,07/03/2026,BKPG,Operasional,Setoran non tunai,180000,,6180000
+BCA AMOR 352-3722227,01/03/2026,BKPG,Operasional,Bayar listrik PLN Maret,,500000,12500000
+BCA AMOR 352-3722227,08/03/2026,BKPG,Operasional,Bayar listrik PLN Maret,,500000,13000000
+Bank Tidak Terdaftar XYZ,09/03/2026,BKPG,Operasional,Transfer keluar tidak dikenal,,450000,13450000
+BCA AMOR 352-1377494,32/13/2026,BKBL,Operasional,Tanggal rusak dari sumber,,300000,8550000
+BCA-Outlet 555,10/03/2026,CPRG,Operasional,Baris jumlah tidak valid,,tidak-ada-angka,15000000
+Mandiri-Outlet,11/03/2026,BAROS,Operasional,Baris kosong kedua kolom,,,4650000
+BCA KCRI 352-3525111,12/03/2026,KCRI,Operasional,Baris debit dan kredit sama-sama isi,50000,50000,3925000
+BCA IKI 352-343352,13/03/2026,BKPG,Operasional,Setoran tunai kedua,220000,,6400000
+BCA AMOR 352-3722227,14/03/2026,BKPG,Operasional,Bayar PDAM Maret,,410000,13410000
+BCA AMOR 352-1377494,14/03/2026,BKBL,Operasional,Bayar PDAM Maret,,410000,8960000

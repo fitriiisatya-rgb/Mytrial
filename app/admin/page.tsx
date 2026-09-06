@@ -21,12 +21,17 @@ export default async function AdminHome() {
       <p className="text-sm text-gray-500">
         Masuk sebagai <b>{profile?.full_name}</b> ({profile?.role}).
       </p>
-      <Link href="/master-data" className="inline-block mt-4 text-sm text-navy underline">
-        Master Data →
-      </Link>
-      <Link href="/cashflow/dashboard" className="inline-block mt-4 ml-4 text-sm text-navy underline">
-        Cashflow Management System →
-      </Link>
+      <div className="flex gap-4 mt-4">
+        <Link href="/master-data" className="text-sm text-navy underline">
+          Master Data →
+        </Link>
+        <Link href="/import" className="text-sm text-navy underline">
+          Transaction Import →
+        </Link>
+        <Link href="/cashflow/dashboard" className="text-sm text-navy underline">
+          Cashflow Management System →
+        </Link>
+      </div>
       <p className="text-sm text-gray-400 mt-4">Manajemen user &amp; role dibangun di Phase 3.</p>
     </main>
   );

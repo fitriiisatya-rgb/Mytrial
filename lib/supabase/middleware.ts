@@ -18,6 +18,9 @@ const ROUTE_ROLES: Record<string, Database["public"]["Enums"]["user_role"][]> = 
   // specific tables a role may write is still enforced by RLS (0008) —
   // this is only the route-level UX guard, not the security boundary.
   "/master-data": ["super_admin", "accounting", "finance_manager", "management"],
+  // Matches staff_rw_import_batches / staff_rw_import_source_configs
+  // (0008/0009) exactly — management has no policy on any import table.
+  "/import": ["super_admin", "accounting", "finance_manager"],
 };
 
 export async function updateSession(request: NextRequest) {

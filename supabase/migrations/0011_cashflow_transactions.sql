@@ -1,5 +1,5 @@
 -- =====================================================================
--- 0010 — CASHFLOW MODULE: SYNC LOG, TRANSACTIONS, INTERNAL TRANSFERS
+-- 0011 — CASHFLOW MODULE: SYNC LOG, TRANSACTIONS, INTERNAL TRANSFERS
 -- =====================================================================
 
 create table sync_batches (

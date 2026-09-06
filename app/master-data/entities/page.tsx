@@ -1,41 +1,48 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { ErrorBanner } from "@/components/master-data/error-banner";
+import { PageHeader } from "@/components/master-data/page-header";
+import { DataTable } from "@/components/master-data/data-table";
+import { Pagination } from "@/components/master-data/pagination";
+import { SearchFilterBar } from "@/components/master-data/search-filter-bar";
+import { ActiveBadge } from "@/components/master-data/status-badge";
+import { ConfirmSubmitButton } from "@/components/master-data/confirm-submit-button";
+import { FormField, inputClass } from "@/components/master-data/form-field";
 import { saveEntity, toggleEntityActive } from "./actions";
+
+const PAGE_SIZE = 20;
+const BASE = "/master-data/entities";
 
 export default async function EntitiesPage({
   searchParams,
 }: {
-  searchParams: { error?: string; edit?: string };
+  searchParams: { error?: string; edit?: string; q?: string; page?: string };
 }) {
-  const { error, edit } = searchParams;
+  const { error, edit, q, page: pageParam } = searchParams;
+  const page = Math.max(1, Number(pageParam) || 1);
   const supabase = await createClient();
-  const { data: entities } = await supabase.from("entities").select("*").order("code");
+
+  let query = supabase.from("entities").select("*", { count: "exact" }).order("code");
+  if (q) query = query.or(`code.ilike.%${q}%,name.ilike.%${q}%`);
+  const from = (page - 1) * PAGE_SIZE;
+  const { data: entities, count } = await query.range(from, from + PAGE_SIZE - 1);
+
   const editing = edit ? entities?.find((e) => e.id === edit) : null;
 
   return (
     <div>
       <ErrorBanner message={error} />
-      <h2 className="text-lg font-semibold text-navy mb-4">Entitas</h2>
+      <PageHeader title="Entitas" description="Perusahaan/badan usaha yang menaungi outlet dan rekening bank." />
 
       <form action={saveEntity} className="bg-white border border-border rounded-lg p-4 mb-6 flex gap-3 items-end">
         {editing && <input type="hidden" name="id" value={editing.id} />}
-        <div>
-          <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Kode</label>
-          <input
-            name="code"
-            defaultValue={editing?.code}
-            required
-            className="border border-border rounded-lg px-3 py-2 text-sm"
-          />
-        </div>
+        <FormField label="Kode" required>
+          <input name="code" defaultValue={editing?.code} required className={inputClass} />
+        </FormField>
         <div className="flex-1">
-          <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Nama</label>
-          <input
-            name="name"
-            defaultValue={editing?.name}
-            required
-            className="w-full border border-border rounded-lg px-3 py-2 text-sm"
-          />
+          <FormField label="Nama" required>
+            <input name="name" defaultValue={editing?.name} required className={inputClass} />
+          </FormField>
         </div>
         <label className="flex items-center gap-2 text-sm text-gray-600 pb-2">
           <input type="checkbox" name="active" defaultChecked={editing?.active ?? true} />
@@ -46,44 +53,49 @@ export default async function EntitiesPage({
         </button>
       </form>
 
-      <table className="w-full text-sm bg-white border border-border rounded-lg overflow-hidden">
-        <thead className="bg-surface text-left text-xs uppercase text-gray-500">
-          <tr>
-            <th className="px-4 py-2">Kode</th>
-            <th className="px-4 py-2">Nama</th>
-            <th className="px-4 py-2">Status</th>
-            <th className="px-4 py-2"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {entities?.map((e) => (
-            <tr key={e.id} className="border-t border-border">
-              <td className="px-4 py-2">{e.code}</td>
-              <td className="px-4 py-2">{e.name}</td>
-              <td className="px-4 py-2">{e.active ? "Aktif" : "Nonaktif"}</td>
-              <td className="px-4 py-2 text-right space-x-3">
-                <a href={`/master-data/entities?edit=${e.id}`} className="text-navy underline">
+      <SearchFilterBar basePath={BASE} searchQuery={q} searchPlaceholder="Cari kode atau nama entitas…" />
+
+      <DataTable
+        columns={[
+          {
+            header: "Kode",
+            cell: (e) => (
+              <Link href={`${BASE}/${e.id}`} className="text-navy underline font-medium">
+                {e.code}
+              </Link>
+            ),
+          },
+          { header: "Nama", cell: (e) => e.name },
+          { header: "Status", cell: (e) => <ActiveBadge active={e.active} /> },
+          {
+            header: "",
+            align: "right",
+            cell: (e) => (
+              <div className="space-x-3">
+                <a href={`${BASE}?edit=${e.id}`} className="text-navy underline">
                   Edit
                 </a>
                 <form action={toggleEntityActive} className="inline">
                   <input type="hidden" name="id" value={e.id} />
                   <input type="hidden" name="active" value={String(e.active)} />
-                  <button type="submit" className="text-gray-500 underline">
+                  <ConfirmSubmitButton
+                    confirmMessage={
+                      e.active
+                        ? `Nonaktifkan entitas "${e.name}"? Data historis tidak akan terhapus.`
+                        : `Aktifkan kembali entitas "${e.name}"?`
+                    }
+                    className="text-gray-500 underline"
+                  >
                     {e.active ? "Nonaktifkan" : "Aktifkan"}
-                  </button>
+                  </ConfirmSubmitButton>
                 </form>
-              </td>
-            </tr>
-          ))}
-          {!entities?.length && (
-            <tr>
-              <td colSpan={4} className="px-4 py-6 text-center text-gray-400">
-                Belum ada data, atau Anda tidak memiliki akses ke data ini.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+              </div>
+            ),
+          },
+        ]}
+        rows={entities ?? []}
+      />
+      <Pagination basePath={BASE} searchParams={{ q }} page={page} pageSize={PAGE_SIZE} total={count ?? 0} />
     </div>
   );
 }
