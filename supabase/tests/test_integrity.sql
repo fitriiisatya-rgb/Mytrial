@@ -27,9 +27,17 @@ begin
       values (v_jh, 1, v_coa_expense, v_entity, v_outlet_bkpg, null, 100000, 0);
     insert into journal_lines (journal_id, line_no, coa_id, entity_id, outlet_id, bank_account_id, debit, credit)
       values (v_jh, 2, v_coa_bank, v_entity, v_outlet_bkpg, v_bank_1, 0, 100000);
-    update journal_headers set status = 'reviewed' where id = v_jh;
-    update journal_headers set status = 'approved' where id = v_jh;
-    update journal_headers set status = 'posted' where id = v_jh;
+    -- Phase 5: status transitions only go through the guarded workflow
+    -- functions now (fn_review_journal/fn_approve_journal/fn_post_journal),
+    -- which derive the actor from auth.uid()/auth_role() (0017) rather
+    -- than a client-supplied id — a raw UPDATE is rejected by
+    -- trg_guard_journal_status_change, and the GUC below is what stands
+    -- in for "who is logged in" the same way test_as() does elsewhere.
+    perform set_config('request.jwt.claim.sub', 'a0000000-0000-0000-0000-00000000a002', true); -- accounting
+    perform fn_review_journal(v_jh);
+    perform set_config('request.jwt.claim.sub', 'a0000000-0000-0000-0000-00000000a003', true); -- finance_manager
+    perform fn_approve_journal(v_jh);
+    perform fn_post_journal(v_jh);
     raise notice 'PASS: 01_journal_debit_equals_credit_promotes';
   exception when others then
     raise notice 'FAIL: 01_journal_debit_equals_credit_promotes - %', sqlerrm;
@@ -45,9 +53,15 @@ begin
       values ('90000000-0000-0000-0000-000000000002', 1, v_coa_expense, v_entity, v_outlet_bkpg, 100000, 0);
     insert into journal_lines (journal_id, line_no, coa_id, entity_id, outlet_id, bank_account_id, debit, credit)
       values ('90000000-0000-0000-0000-000000000002', 2, v_coa_bank, v_entity, v_outlet_bkpg, v_bank_1, 0, 50000);
+    -- Review itself doesn't check balance (only approve/post do) — must
+    -- succeed here so the exception below is actually the balance guard,
+    -- not just "still draft".
+    perform set_config('request.jwt.claim.sub', 'a0000000-0000-0000-0000-00000000a002', true); -- accounting
+    perform fn_review_journal('90000000-0000-0000-0000-000000000002');
+    perform set_config('request.jwt.claim.sub', 'a0000000-0000-0000-0000-00000000a003', true); -- finance_manager
     begin
-      update journal_headers set status = 'approved' where id = '90000000-0000-0000-0000-000000000002';
-      raise notice 'FAIL: 02_unbalanced_journal_rejected - update succeeded but should have raised';
+      perform fn_approve_journal('90000000-0000-0000-0000-000000000002');
+      raise notice 'FAIL: 02_unbalanced_journal_rejected - approve succeeded but should have raised';
     exception when others then
       raise notice 'PASS: 02_unbalanced_journal_rejected (%)', sqlerrm;
     end;

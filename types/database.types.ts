@@ -299,6 +299,13 @@ export interface Database {
             isOneToOne: false;
             referencedRelation: "import_batches";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "bank_transactions_raw_bank_id_fkey";
+            columns: ["bank_id"];
+            isOneToOne: false;
+            referencedRelation: "banks";
+            referencedColumns: ["id"];
           }
         ];
       };
@@ -323,6 +330,20 @@ export interface Database {
             columns: ["import_batch_id"];
             isOneToOne: false;
             referencedRelation: "import_batches";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "revenue_transactions_raw_revenue_source_id_fkey";
+            columns: ["revenue_source_id"];
+            isOneToOne: false;
+            referencedRelation: "revenue_sources";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "revenue_transactions_raw_outlet_id_fkey";
+            columns: ["outlet_id"];
+            isOneToOne: false;
+            referencedRelation: "outlets";
             referencedColumns: ["id"];
           }
         ];
@@ -457,11 +478,46 @@ export interface Database {
           source_id: string | null; batch_id: string | null; entity_id: string; accounting_period_id: string;
           status: JournalStatus; description: string | null; created_by: string | null;
           reviewed_by: string | null; reviewed_at: string | null; approved_by: string | null; approved_at: string | null;
-          posted_at: string | null; reversal_of_id: string | null; created_at: string;
+          posted_by: string | null; posted_at: string | null; reversal_of_id: string | null; created_at: string;
         };
-        Insert: Omit<Database["public"]["Tables"]["journal_headers"]["Row"], "id" | "created_at"> & { id?: string };
+        Insert: {
+          id?: string; journal_number?: string; journal_date: string; source_type: JournalSourceType;
+          source_id?: string | null; batch_id?: string | null; entity_id: string; accounting_period_id: string;
+          status?: JournalStatus; description?: string | null; created_by?: string | null;
+          reviewed_by?: string | null; reviewed_at?: string | null; approved_by?: string | null; approved_at?: string | null;
+          posted_by?: string | null; posted_at?: string | null; reversal_of_id?: string | null;
+        };
         Update: Partial<Database["public"]["Tables"]["journal_headers"]["Row"]>;
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "journal_headers_entity_id_fkey";
+            columns: ["entity_id"];
+            isOneToOne: false;
+            referencedRelation: "entities";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "journal_headers_accounting_period_id_fkey";
+            columns: ["accounting_period_id"];
+            isOneToOne: false;
+            referencedRelation: "accounting_periods";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "journal_headers_batch_id_fkey";
+            columns: ["batch_id"];
+            isOneToOne: false;
+            referencedRelation: "import_batches";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "journal_headers_reversal_of_id_fkey";
+            columns: ["reversal_of_id"];
+            isOneToOne: false;
+            referencedRelation: "journal_headers";
+            referencedColumns: ["id"];
+          }
+        ];
       };
       journal_lines: {
         Row: {
@@ -471,17 +527,67 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["journal_lines"]["Row"], "id" | "created_at"> & { id?: string };
         Update: Partial<Database["public"]["Tables"]["journal_lines"]["Row"]>;
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "journal_lines_journal_id_fkey";
+            columns: ["journal_id"];
+            isOneToOne: false;
+            referencedRelation: "journal_headers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "journal_lines_coa_id_fkey";
+            columns: ["coa_id"];
+            isOneToOne: false;
+            referencedRelation: "coa";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "journal_lines_outlet_id_fkey";
+            columns: ["outlet_id"];
+            isOneToOne: false;
+            referencedRelation: "outlets";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "journal_lines_bank_account_id_fkey";
+            columns: ["bank_account_id"];
+            isOneToOne: false;
+            referencedRelation: "banks";
+            referencedColumns: ["id"];
+          }
+        ];
       };
       allocation_rules: {
         Row: {
           id: string; source_coa_id: string; source_journal_line_id: string | null; method: AllocationMethod;
           effective_date: string; total_amount: Numeric; resulting_journal_id: string | null;
+          bank_transaction_id: string | null;
           active: boolean; created_by: string | null; created_at: string;
         };
-        Insert: Omit<Database["public"]["Tables"]["allocation_rules"]["Row"], "id" | "created_at"> & { id?: string };
+        Insert: {
+          id?: string; source_coa_id: string; source_journal_line_id?: string | null; method: AllocationMethod;
+          effective_date: string; total_amount: Numeric; resulting_journal_id?: string | null;
+          bank_transaction_id?: string | null;
+          active?: boolean; created_by?: string | null;
+        };
         Update: Partial<Database["public"]["Tables"]["allocation_rules"]["Row"]>;
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "allocation_rules_source_coa_id_fkey";
+            columns: ["source_coa_id"];
+            isOneToOne: false;
+            referencedRelation: "coa";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "allocation_rules_bank_transaction_id_fkey";
+            columns: ["bank_transaction_id"];
+            isOneToOne: false;
+            referencedRelation: "bank_transactions_raw";
+            referencedColumns: ["id"];
+          }
+        ];
       };
       allocation_rule_outlets: {
         Row: {
@@ -560,6 +666,51 @@ export interface Database {
         Insert: Omit<Database["public"]["Tables"]["audit_log"]["Row"], "id" | "created_at"> & { id?: string };
         Update: Partial<Database["public"]["Tables"]["audit_log"]["Row"]>;
         Relationships: [];
+      };
+      bank_transfers: {
+        Row: {
+          id: string; source_transaction_id: string; source_bank_id: string;
+          destination_transaction_id: string | null; destination_bank_id: string | null;
+          amount: Numeric; transfer_date: string; pairing_status: "unmatched" | "suggested" | "confirmed";
+          journal_id: string | null; created_by: string | null; created_at: string;
+        };
+        Insert: {
+          id?: string; source_transaction_id: string; source_bank_id: string;
+          destination_transaction_id?: string | null; destination_bank_id?: string | null;
+          amount: Numeric; transfer_date: string; pairing_status?: "unmatched" | "suggested" | "confirmed";
+          journal_id?: string | null; created_by?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["bank_transfers"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "bank_transfers_source_transaction_id_fkey";
+            columns: ["source_transaction_id"];
+            isOneToOne: true;
+            referencedRelation: "bank_transactions_raw";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "bank_transfers_destination_transaction_id_fkey";
+            columns: ["destination_transaction_id"];
+            isOneToOne: false;
+            referencedRelation: "bank_transactions_raw";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "bank_transfers_source_bank_id_fkey";
+            columns: ["source_bank_id"];
+            isOneToOne: false;
+            referencedRelation: "banks";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "bank_transfers_destination_bank_id_fkey";
+            columns: ["destination_bank_id"];
+            isOneToOne: false;
+            referencedRelation: "banks";
+            referencedColumns: ["id"];
+          }
+        ];
       };
 
       // -----------------------------------------------------------------
@@ -853,6 +1004,13 @@ export interface Database {
       fn_publish_pnl: { Args: { p_pnl_report_id: string; p_actor: string }; Returns: void };
       fn_reopen_period: { Args: { p_period_id: string; p_actor: string; p_reason: string }; Returns: void };
       fn_rebuild_balance_snapshots: { Args: { p_bank_account_id: string }; Returns: void };
+      fn_review_journal: { Args: { p_journal_id: string }; Returns: void };
+      fn_approve_journal: { Args: { p_journal_id: string }; Returns: void };
+      fn_post_journal: { Args: { p_journal_id: string }; Returns: void };
+      fn_reverse_journal: {
+        Args: { p_journal_id: string; p_reversal_date: string; p_reason: string | null };
+        Returns: string; // uuid of the new reversal journal
+      };
     };
     Enums: {
       user_role: UserRole;
