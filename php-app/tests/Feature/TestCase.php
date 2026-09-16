@@ -66,6 +66,7 @@ abstract class TestCase extends BaseTestCase
         $pdo = Connection::instance();
         $pdo->exec((string) file_get_contents(dirname(__DIR__, 2) . '/database/schema/0001_core_foundation.sql'));
         $pdo->exec((string) file_get_contents(dirname(__DIR__, 2) . '/database/schema/0002_master_data.sql'));
+        $pdo->exec((string) file_get_contents(dirname(__DIR__, 2) . '/database/schema/0003_transaction_import.sql'));
         self::$schemaReady = true;
     }
 
@@ -80,6 +81,8 @@ abstract class TestCase extends BaseTestCase
         // is more fragile than briefly disabling checks for a full reset.
         $pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
         foreach ([
+            'normalized_bank_transactions', 'normalized_revenue_transactions', 'raw_import_rows',
+            'import_batches', 'import_sources',
             'investor_ownerships', 'partnership_contracts', 'banks', 'outlets', 'coa', 'investors',
             'accounting_periods', 'entities',
             'audit_log', 'sessions', 'password_reset_tokens', 'login_attempts', 'profiles',

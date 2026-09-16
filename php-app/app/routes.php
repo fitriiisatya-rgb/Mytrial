@@ -4,14 +4,18 @@ declare(strict_types=1);
 
 use App\Controllers\AuthController;
 use App\Controllers\BankController;
+use App\Controllers\BankExpenseImportController;
 use App\Controllers\CoaController;
 use App\Controllers\ContractController;
 use App\Controllers\DemoController;
 use App\Controllers\EntityController;
 use App\Controllers\HomeController;
+use App\Controllers\ImportHistoryController;
+use App\Controllers\ImportSourceController;
 use App\Controllers\InvestorController;
 use App\Controllers\OutletController;
 use App\Controllers\OwnershipController;
+use App\Controllers\RevenueImportController;
 use App\Middleware\AuthMiddleware;
 use App\Middleware\CsrfMiddleware;
 use App\Middleware\PolicyMiddleware;
@@ -108,4 +112,32 @@ return function (Router $router): void {
     $router->post('/master/ownerships', fn () => (new OwnershipController())->store(), $ownershipWrite);
     $router->get('/master/ownerships/{id}/end', fn ($p) => (new OwnershipController())->endForm($p), $ownershipWrite);
     $router->post('/master/ownerships/{id}/end', fn ($p) => (new OwnershipController())->end($p), $ownershipWrite);
+
+    // ---- Transaction Import (Phase 3) -----------------------------------
+    // Same staff-only/investor-excluded convention as Master Data (spec
+    // X): every /import/* URL is unreachable by an investor session,
+    // and every mutating action (upload/preview/confirm/cancel) further
+    // requires 'import.write' - management can view the upload form and
+    // batch results but never trigger an import (see Policy::ABILITIES).
+    $importWrite = array_merge($staffOnly, [$csrf, new PolicyMiddleware('import.write')]);
+    $router->get('/import/bank-expense', fn () => (new BankExpenseImportController())->form(), $staffOnly);
+    $router->post('/import/bank-expense/preview', fn () => (new BankExpenseImportController())->preview(), $importWrite);
+    $router->post('/import/bank-expense/confirm', fn () => (new BankExpenseImportController())->confirm(), $importWrite);
+    $router->post('/import/bank-expense/cancel', fn () => (new BankExpenseImportController())->cancel(), $importWrite);
+    $router->get('/import/bank-expense/batches/{id}', fn ($p) => (new BankExpenseImportController())->showBatch($p), $staffOnly);
+
+    $router->get('/import/revenue', fn () => (new RevenueImportController())->form(), $staffOnly);
+    $router->post('/import/revenue/preview', fn () => (new RevenueImportController())->preview(), $importWrite);
+    $router->post('/import/revenue/confirm', fn () => (new RevenueImportController())->confirm(), $importWrite);
+    $router->post('/import/revenue/cancel', fn () => (new RevenueImportController())->cancel(), $importWrite);
+    $router->get('/import/revenue/batches/{id}', fn ($p) => (new RevenueImportController())->showBatch($p), $staffOnly);
+
+    $router->get('/import/history', fn () => (new ImportHistoryController())->index(), $staffOnly);
+
+    $importSourcesWrite = array_merge($staffOnly, [$csrf, new PolicyMiddleware('import.sources.write')]);
+    $router->get('/import/sources', fn () => (new ImportSourceController())->index(), $staffOnly);
+    $router->get('/import/sources/create', fn () => (new ImportSourceController())->create(), $importSourcesWrite);
+    $router->post('/import/sources', fn () => (new ImportSourceController())->store(), $importSourcesWrite);
+    $router->get('/import/sources/{id}/edit', fn ($p) => (new ImportSourceController())->edit($p), $importSourcesWrite);
+    $router->post('/import/sources/{id}', fn ($p) => (new ImportSourceController())->update($p), $importSourcesWrite);
 };

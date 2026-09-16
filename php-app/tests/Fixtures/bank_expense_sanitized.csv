@@ -1,0 +1,14 @@
+"LAPORAN REKENING KORAN (DATA SANITASI - BUKAN DATA ASLI)"
+"Periode: Agustus 2026"
+
+Bank,Tanggal,Unit,Klasifikasi,Deskripsi,Debit,Kredit,Saldo
+"Test Bank",01/08/2026,OUT-A,"Administrasi Bank","Biaya admin bulanan",0,15.000,985.000
+"Test Bank",01/08/2026,OUT-A,"Administrasi Bank","Biaya admin bulanan",0,15.000,970.000
+"Test Bank",02/08/2026,OUT-A,Marketing,"Iklan Facebook Agustus",0,1.250.000,2.220.000
+"Test Bank",03/08/2026,OUT-B,"Biaya Lain","Pembelian materai",0,"1.500,50",2218999
+"Test Bank",04/08/2026,OUT-A,Koreksi,"Reversal salah catat",0,(50.000),2168999
+"Test Bank",05/08/2026,OUT-A,"Setoran Tunai","Setor tunai ke rekening",200.000,0,2368999
+"Test Bank",06/08/2026,OUT-A,Anomali,"Baris tidak wajar - keduanya terisi",10.000,5.000,2363999
+"Bank Tidak Dikenal",07/08/2026,OUT-A,Lainnya,"Transaksi dari bank tak terdaftar",0,7.500,2371499
+"Test Bank",31/02/2026,OUT-A,Pajak,"Pajak final bulanan - tanggal tidak valid",0,20.000,2391499
+

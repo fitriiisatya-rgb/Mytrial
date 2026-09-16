@@ -124,7 +124,7 @@ final class OutletRepository
         ]);
     }
 
-    /** @return list<array<string, mixed>> every active outlet, for select dropdowns */
+    /** @return list<array{id: string, code: string, name: string}> every active outlet - for select dropdowns and, unchanged, for OutletMatcher during Revenue import (never matches against a closed/inactive outlet). */
     public function listActive(): array
     {
         $stmt = Connection::instance()->query("SELECT id, code, name FROM outlets WHERE status = 'active' ORDER BY name ASC");

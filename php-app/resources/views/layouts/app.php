@@ -16,6 +16,7 @@ $nav = [
     'investors' => ['/master/investors', 'Investor'],
     'contracts' => ['/master/contracts', 'Kontrak Kemitraan'],
     'ownerships' => ['/master/ownerships', 'Kepemilikan Investor'],
+  'import' => ['/import/bank-expense', 'Import Transaksi'],
 ];
 $flash = Flash::consume();
 ?>

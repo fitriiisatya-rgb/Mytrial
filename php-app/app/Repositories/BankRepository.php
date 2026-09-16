@@ -86,6 +86,13 @@ final class BankRepository
     }
 
     /** The bank (if any) that already uses $coaId - COA must be bank-specific, never shared (spec E). */
+    /** @return list<array{id: string, bank_name: string}> active banks, for BankMatcher during import - never matches against a deactivated account. */
+    public function listActiveForMatching(): array
+    {
+        $stmt = Connection::instance()->query('SELECT id, bank_name FROM banks WHERE is_active = 1');
+        return $stmt->fetchAll();
+    }
+
     public function findByCoaId(string $coaId): ?array
     {
         $stmt = Connection::instance()->prepare('SELECT * FROM banks WHERE coa_id = :coa_id LIMIT 1');

@@ -42,6 +42,18 @@ final class Policy
         'master.banks.write' => ['super_admin', 'accounting', 'finance_manager'],
         'master.contracts.write' => ['super_admin', 'accounting', 'finance_manager'],
         'master.ownerships.write' => ['super_admin', 'accounting', 'finance_manager'],
+
+        // Phase 3 Transaction Import - write access (upload/preview/
+        // confirm/cancel). Excludes `management`, same as banks/contracts/
+        // ownerships above: management may view import history/results
+        // (gated at the route level, staff-only, investor excluded
+        // entirely - see app/routes.php) but never trigger an import.
+        'import.write' => ['super_admin', 'accounting', 'finance_manager'],
+
+        // "Sumber Data" (import_sources) - a named, reusable upload
+        // source's own config, not a transaction import itself, but
+        // still excludes `management` for the same reason as import.write.
+        'import.sources.write' => ['super_admin', 'accounting', 'finance_manager'],
     ];
 
     public static function can(?array $user, string $ability): bool

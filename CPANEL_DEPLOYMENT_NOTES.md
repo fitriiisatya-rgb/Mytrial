@@ -1,4 +1,4 @@
-# cPanel Deployment Notes — Phase 1 Core Foundation
+# cPanel Deployment Notes
 
 Covers the PHP application under `php-app/` in this repository. Written for whoever performs the actual cPanel deployment (you, or hosting support) — read this before uploading anything.
 
@@ -19,19 +19,41 @@ All of these are enabled by default on virtually every cPanel PHP build, but con
 | `session` | Core PHP session support (the app supplies its own DB-backed save handler on top of this) |
 | `openssl` or `sodium` (either) | `random_bytes()` (UUIDs, CSRF tokens, session ids) — PHP's CSPRNG works via either; virtually always available regardless of which |
 
-Phase 1 itself requires **no Composer package at runtime** — `composer.json`'s `require` section lists only `"php": ">=8.1"`. `phpunit/phpunit` is a `require-dev` package (tests only, never uploaded to production — see "vendor/ upload notes" below). Later phases (Phase 3 Import, if Excel/.xlsx support is built with PhpSpreadsheet) will add a real runtime dependency; this document will be updated at that point.
+Phase 1/2 required no Composer package at runtime. **Phase 3 (Import) adds the first real runtime dependency: `phpoffice/phpspreadsheet` (^5.9)**, used for `.xlsx` reading (`App\Services\Import\XlsxReader`) — CSV import (`App\Services\Import\CsvReader`) still uses only native PHP (`fgetcsv`) and has no dependency at all. PhpSpreadsheet itself additionally needs:
+
+| Extension | Used for |
+|---|---|
+| `zip` | Reading the `.xlsx` container (an XLSX file is a ZIP archive internally) |
+| `xml` / `xmlreader` / `xmlwriter` | Parsing the XLSX's internal XML sheet data |
+| `gd` or `mbstring` (mbstring already required above) | String/formatting helpers PhpSpreadsheet's reader path touches — `gd` specifically only matters for chart/image features this app never uses, so its absence is not a blocker for import |
+
+All of the above are standard on cPanel's default PHP builds; confirm in "MultiPHP INI Editor" → PHP Extensions same as the Phase 1 list. `phpunit/phpunit` remains `require-dev` (tests only, never uploaded — see "vendor/ upload notes" below).
 
 ## Folder permissions
 
 | Path | Permission | Why |
 |---|---|---|
 | `storage/logs/` | `755` dir, writable by the PHP process (`chmod 755` is usually enough on cPanel's suPHP/PHP-FPM-as-account-user setup; if the host runs PHP as a different user than file ownership, `775` or a cPanel-specific ACL may be needed — check with hosting support) | `App\Helpers\ErrorHandler` writes here on every uncaught exception |
-| `storage/uploads/` | Same as above | Reserved for Phase 3's import file uploads — not used yet in Phase 1 |
+| `storage/uploads/import-tmp/` | Same as above, `chmod 0640` on files created within it (done automatically by `UploadValidator`) | Phase 3's temp holding area for an uploaded Buku Bank/Revenue file between "upload" and "confirm" — outside `public/`, never web-servable, filenames are server-generated UUIDs (never the original filename) |
 | `storage/sessions/` | Same as above | Currently unused (sessions are DB-backed by default — see below); kept only as the documented fallback path if a specific host makes DB sessions impractical |
 | Everything else | `644` files / `755` dirs (cPanel's normal default) | No other path needs write access |
 | `.env` | `600` if your hosting user allows it, `644` minimum otherwise | Contains DB credentials — never make this world-readable beyond what the hosting account's own isolation already requires |
 
 **Never set `777` anywhere.** If a write fails with `777` unset, the actual problem is almost always the PHP process running as a different user than the file owner (common on some shared hosts) — fix via cPanel's file manager "Change Owner" or ask hosting support, don't loosen permissions as a workaround.
+
+## PHP upload/execution settings (Phase 3 — Import)
+
+Set these in cPanel's **"MultiPHP INI Editor"** (or a `php.ini`/`.user.ini` override if your plan allows it — a project-root `.htaccess` `php_value` directive works on `mod_php` but is ignored under `php-fpm`, which most modern cPanel accounts use, so the INI Editor is the reliable path). Values below were sized against a real measured run (Task #105's synthetic 12,000-row/1.06 MB Bank Expense file, timed end-to-end on this project's own dev box): `analyze()` ≈ 2.9s, full `commit()` ≈ 8.3s, idempotent re-import ≈ 2.5s — well inside every recommended value below, leaving headroom for slower shared-hosting CPU/disk and for `.xlsx` files (heavier to parse than CSV of the same row count).
+
+| Setting | Recommended | Why |
+|---|---|---|
+| `upload_max_filesize` | `25M` | `UploadValidator::MAX_BYTES` caps an accepted upload at 20MB app-side — PHP's own ceiling must be set *above* that, or a 20MB file gets silently truncated/rejected by PHP itself before the app ever sees it (`$_FILES[...]['error'] === UPLOAD_ERR_INI_SIZE`, which `UploadValidator` already detects and reports, but better to never hit it for a file the app is supposed to accept). |
+| `post_max_size` | `26M` | Must be ≥ `upload_max_filesize` (PHP's own rule — the whole POST body, including multipart overhead, has to fit) — one extra MB of headroom over the filesize cap. |
+| `max_execution_time` | `120` (seconds) | Measured: 12,000 rows ≈ 8.3s. 120s gives roughly 15x headroom for a slower shared-hosting CPU and for `.xlsx` (PhpSpreadsheet is slower than `fgetcsv` per row) at the spec's stated "10k+ rows/file" target. Not the "future 1M rows" target — a file that large needs the async/batch approach noted below, not a bigger timeout. |
+| `max_input_time` | `120` | Same reasoning as `max_execution_time` — this covers the time PHP spends *receiving* the upload, which for a slow client connection can matter independently of server-side processing time. |
+| `memory_limit` | `256M` | PhpSpreadsheet's `.xlsx` reader, even with `setReadDataOnly(true)` (already set in `XlsxReader`), holds more in memory per row than `fgetcsv`'s pure streaming — 256M is comfortable for the 10k-row target with margin; raise it further only if a real `.xlsx` import is observed to hit the limit (check `storage/logs/app.log`, which logs the exception before showing the user a generic error). |
+
+**A note on the stated "future 1M rows" target**: none of the settings above make a single PHP-per-request import of 1,000,000 rows practical or safe on shared hosting — that scale needs chunked/background processing (e.g. splitting the file client-side, or a queued multi-cron-tick approach), which is out of scope for Phase 3 as built. The current design's explicit, met target is 10k+ rows per file / 100k+ total database rows (server-side pagination on every list view, indexed lookups on every hot column — see `database/schema/0003_transaction_import.sql`'s index list) — treat "1M" as a documented future direction, not a Phase 3 claim.
 
 ## Database setup
 
@@ -58,7 +80,7 @@ Phase 1 has **no `vendor/` dependency that matters in production** (`composer.js
 
 - Run `composer install --no-dev --optimize-autoloader` locally or in CI before uploading (`--no-dev` excludes PHPUnit — it has no place in production; `--optimize-autoloader` generates a faster classmap, worth doing even though this app is small).
 - Upload the resulting `vendor/` folder alongside everything else. **Composer itself never needs to run on the cPanel server** — this satisfies the "don't make Composer mandatory in production" requirement exactly as asked.
-- When a later phase adds a real dependency (e.g. `phpoffice/phpspreadsheet` for Phase 3's `.xlsx` import), the workflow is identical: `composer install --no-dev` locally, re-upload the updated `vendor/` folder. This document's "vendor/ upload notes" section will be revisited at that point with any extension requirements PhpSpreadsheet itself needs (it typically needs `ext-zip`, `ext-xml`, `ext-gd` — all common on cPanel, but worth confirming when that phase ships).
+- **Phase 3 update**: `composer.json` now has a real runtime dependency (`phpoffice/phpspreadsheet` ^5.9, for `.xlsx` import — see "Required PHP extensions" above for what it needs enabled). The workflow is unchanged: `composer install --no-dev --optimize-autoloader` locally/CI, re-upload the updated `vendor/` folder (noticeably larger now — PhpSpreadsheet pulls in several transitive packages). CSV import has zero dependency on this package at all (`CsvReader` is pure `fgetcsv`), so a deployment that skips `.xlsx` support entirely could in principle omit PhpSpreadsheet from `composer.json` — not recommended, since spec treats `.xlsx` as a mandatory input format, but worth knowing the dependency is scoped to exactly one reader class.
 
 ## Document root assumptions
 
@@ -70,7 +92,15 @@ The correct, secure setup points the domain/subdomain's document root directly a
 
 ## Cron assumptions
 
-Phase 1 registers no cron job. From Phase 3 (Import) and Phase 6 (Cashflow's Google Sheet sync) onward, this project's design deliberately avoids any persistent background worker/queue daemon (not available on shared hosting) in favor of **cPanel's own Cron Jobs** feature calling a PHP CLI script directly (`php /home/youraccount/php-app/cron/sync_sheets.php`, per `CPANEL_MYSQL_IMPLEMENTATION_PLAN.md`'s Phase 6 section) — no HTTP round-trip, no shared secret needed, and it fails loudly into `storage/logs/app.log` rather than silently. Nothing to configure yet in Phase 1; this section will be filled in with the exact cron line when that phase ships.
+Phase 1/2 registered no cron job. This project's design deliberately avoids any persistent background worker/queue daemon (not available on shared hosting) in favor of **cPanel's own Cron Jobs** feature calling a PHP CLI script directly — no HTTP round-trip, no shared secret needed, and it fails loudly into `storage/logs/app.log` rather than silently.
+
+**Phase 3 adds the first real cron job**: `php-app/cron/cleanup_import_tmp.php` deletes anything left in `storage/uploads/import-tmp/` older than 24 hours — a file lands there the moment someone uploads a Buku Bank/Revenue export and is only cleaned up by the app itself on a successful "confirm" or an explicit "cancel"; a user who closes the tab at the preview step instead leaves it behind indefinitely, which matters on shared hosting's limited disk quota. Add via cPanel → **Cron Jobs**:
+
+```
+0 3 * * *  php /home/youraccount/php-app/cron/cleanup_import_tmp.php >> /home/youraccount/php-app/storage/logs/cron_cleanup.log 2>&1
+```
+
+(daily at 03:00 server time; safe to run more often — it only ever deletes files past the 24h threshold, never anything freshly uploaded). Replace `/home/youraccount/php-app/` with the actual absolute path cPanel shows for your account. Phase 6 (Cashflow's Google Sheet sync) will add a second cron job at that point, following the same pattern.
 
 ## Security notes
 
@@ -82,7 +112,8 @@ Phase 1 registers no cron job. From Phase 3 (Import) and Phase 6 (Cashflow's Goo
 - **Authorization**: enforced entirely server-side — `AuthMiddleware` (is there a session at all), `RoleMiddleware`/`Policy` (which role may do this), and Repository-level row scoping (which *rows* a given user's query may ever return, resolved inside the SQL itself, never as a client-trusted parameter or a UI-only hide). See `CPANEL_MYSQL_IMPLEMENTATION_PLAN.md`'s RBAC Architecture section for the full reasoning — there is no database-level RLS backstop in MySQL, so this discipline is the entire security boundary from Phase 1 onward.
 - **Error disclosure**: `APP_DEBUG=false` in production means an uncaught exception shows only a generic "Something went wrong" (or the matching 401/403/404 status) — full details go only to `storage/logs/app.log`, never to the browser.
 - **Rate limiting**: `login_attempts` tracks failures per identifier (email or IP); a configurable threshold (`LOGIN_MAX_ATTEMPTS`, default 5 within `LOGIN_LOCKOUT_MINUTES`, default 15) locks out further attempts — implemented in the database rather than an in-memory limiter, since shared hosting offers no persistent process to hold that state.
-- **No daemon/background process anywhere** in this design, by construction — every requirement above is satisfied within a single PHP-per-request model, exactly matching the shared-hosting constraint.
+- **No daemon/background process anywhere** in this design, by construction — every requirement above is satisfied within a single PHP-per-request model, exactly matching the shared-hosting constraint (Phase 3's cleanup job runs via cPanel Cron, not a resident process, same as every other scheduled task in this project).
+- **Phase 3 upload security**: `UploadValidator` rejects anything outside `csv`/`xlsx`/`xls` by extension *and* cross-checks the actual file content via `finfo` MIME sniffing (an attacker renaming a script to `.csv` does not get past the content check); every accepted file is renamed to a server-generated UUID before being written to disk (the original filename is kept only as display metadata, never used to build a path — closes path traversal at the write side) and stored under `storage/uploads/import-tmp/`, outside `public/`, `chmod 0640`. Reading a previously-uploaded file back (the "confirm" step) resolves its token through a regex that requires a bare UUID shape before any path is built (`UploadValidator::resolveToken()`) — a malformed or path-traversal token (`../../etc/passwd`) is rejected before the filesystem is ever touched, not just via a "file not found" side effect. This is unit-tested directly (`tests/Feature/ImportUploadSecurityTest.php`).
 
 ---
 
