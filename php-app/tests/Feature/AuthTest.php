@@ -118,15 +118,18 @@ final class AuthTest extends TestCase
     /** 11. SQL injection attempt does not break query */
     public function testSqlInjectionAttemptDoesNotBreakQuery(): void
     {
+        $before = Connection::instance()->query('SELECT COUNT(*) AS c FROM profiles')->fetch();
+
         $result = (new AuthService())->login("x' OR '1'='1", 'whatever');
 
         self::assertFalse($result['success']);
         self::assertSame('invalid_credentials', $result['reason']);
 
         // The injection string must have been treated as literal data,
-        // never as SQL - every seeded profile must still exist untouched.
-        $count = Connection::instance()->query('SELECT COUNT(*) AS c FROM profiles')->fetch();
-        self::assertSame(4, (int) $count['c']);
+        // never as SQL - every seeded profile must still exist untouched
+        // (not just "some" - the exact same count as before the attempt).
+        $after = Connection::instance()->query('SELECT COUNT(*) AS c FROM profiles')->fetch();
+        self::assertSame((int) $before['c'], (int) $after['c']);
     }
 
     /** 12. session fixation mitigated */

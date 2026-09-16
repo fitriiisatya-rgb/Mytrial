@@ -23,10 +23,25 @@ final class Policy
 {
     /** @var array<string, list<string>> ability => allowed roles */
     private const ABILITIES = [
-        // Phase 1 demo ability, exercised by tests/Feature - later
-        // phases add one entry per real action (e.g.
-        // 'journal.approve' => ['finance_manager', 'super_admin']).
+        // Phase 1 demo ability, exercised by tests/Feature.
         'demo.manage' => ['super_admin', 'accounting', 'finance_manager'],
+
+        // Phase 2 Master Data - write access. Read access to every
+        // master page is gated at the route level (RoleMiddleware,
+        // staff-only, investor excluded entirely - see app/routes.php)
+        // rather than per-ability, since every staff role may at least
+        // view Master Data; these abilities are what additionally gate
+        // create/edit/status-change. Mirrors the original TypeScript
+        // app's lib/supabase/permissions.ts WRITE_ROLES map exactly:
+        // banks/contracts/ownerships exclude `management`, the rest
+        // include it.
+        'master.entities.write' => ['super_admin', 'accounting', 'finance_manager', 'management'],
+        'master.outlets.write' => ['super_admin', 'accounting', 'finance_manager', 'management'],
+        'master.coa.write' => ['super_admin', 'accounting', 'finance_manager', 'management'],
+        'master.investors.write' => ['super_admin', 'accounting', 'finance_manager', 'management'],
+        'master.banks.write' => ['super_admin', 'accounting', 'finance_manager'],
+        'master.contracts.write' => ['super_admin', 'accounting', 'finance_manager'],
+        'master.ownerships.write' => ['super_admin', 'accounting', 'finance_manager'],
     ];
 
     public static function can(?array $user, string $ability): bool

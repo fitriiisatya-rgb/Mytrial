@@ -54,6 +54,16 @@ final class ProfileRepository
         return $id;
     }
 
+    /** @return list<array<string, mixed>> every active profile with the given role, e.g. for the Investor form's "link to login account" dropdown. */
+    public function listActiveByRole(string $role): array
+    {
+        $stmt = Connection::instance()->prepare(
+            'SELECT id, name, email FROM profiles WHERE role = :role AND is_active = 1 ORDER BY name ASC'
+        );
+        $stmt->execute(['role' => $role]);
+        return $stmt->fetchAll();
+    }
+
     /**
      * Row-level scoping example for Phase 1's demo route (per
      * CPANEL_MYSQL_IMPLEMENTATION_PLAN.md's RBAC Architecture section):

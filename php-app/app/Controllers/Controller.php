@@ -22,6 +22,25 @@ abstract class Controller
         echo View::render($view, $data);
     }
 
+    /**
+     * Phase 2+ pages: renders $view's markup, then wraps it in
+     * resources/views/layouts/app.php (sidebar nav + flash banner +
+     * logout). Kept as a separate method from view() rather than a
+     * parameter default so Phase 1's login/home pages (which render
+     * their own full <html> document) are untouched.
+     */
+    protected function viewWithLayout(string $view, string $title, string $active, array $data = []): void
+    {
+        $data['user'] ??= $this->currentUser();
+        $content = View::render($view, $data);
+        echo View::render('layouts/app', [
+            'title' => $title,
+            'active' => $active,
+            'user' => $data['user'],
+            'content' => $content,
+        ]);
+    }
+
     protected function redirect(string $to): void
     {
         header('Location: ' . $to, true, 302);
